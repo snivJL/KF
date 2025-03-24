@@ -15,7 +15,9 @@ export async function GET() {
     grant_type: "refresh_token",
   });
 
-  const res = await fetch("https://accounts.zoho.com/oauth/v2/token", {
+  const tokenUrl = process.env.ACCOUNT_URL!;
+
+  const res = await fetch(tokenUrl + "/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: params.toString(),
@@ -24,6 +26,7 @@ export async function GET() {
   const data = await res.json();
 
   if (!res.ok || !data.access_token) {
+    console.error("Access token refresh failed", data);
     return new NextResponse("Token refresh failed", { status: 500 });
   }
 

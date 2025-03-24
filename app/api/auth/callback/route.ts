@@ -1,27 +1,30 @@
-import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
+
+/**
+ * 🌐 Environment-Aware OAuth Callback
+ *
+ * On development:
+ * - Uses client-side JavaScript (document.cookie) to store refresh_token for simplicity.
+ *
+ * On production:
+ * - Stores refresh_token securely in HttpOnly cookies using `NextResponse.cookies.set`.
+ */
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
-  const state = url.searchParams.get("state");
-  const accountsServer = url.searchParams.get("accounts-server");
-  const location = url.searchParams.get("location");
 
-  if (!code || !accountsServer || !location) {
-    return new NextResponse("Missing code or domain info", { status: 400 });
+  if (!code) {
+    return new Response("Missing code", { status: 400 });
   }
 
-  const portalId = process.env.ZOHO_PORTAL_ID!;
-  const tokenUrl = `${accountsServer}/clientoauth/v2/${portalId}/token`;
-
+  const tokenUrl = `${process.env.ACCOUNT_URL!}/token`;
   const params = new URLSearchParams({
     grant_type: "authorization_code",
     client_id: process.env.ZOHO_CLIENT_ID!,
     client_secret: process.env.ZOHO_CLIENT_SECRET!,
     redirect_uri: process.env.ZOHO_REDIRECT_URI!,
     code,
-    state: state || "secure_state"
   });
 
   const tokenRes = await fetch(tokenUrl, {
@@ -34,29 +37,34 @@ export async function GET(req: NextRequest) {
 
   if (!tokenRes.ok || !tokenData.refresh_token) {
     console.error("Token exchange failed", tokenData);
-    return new NextResponse("Error fetching token", { status: 500 });
+    return new Response("Error fetching token", { status: 500 });
   }
 
-  (await cookies()).set("vcrm_refresh_token", tokenData.refresh_token, {
-    httpOnly: true,
-    path: "/",
-    secure: true,
-    maxAge: 60 * 60 * 24 * 30,
-  });
+  const isProd = process.env.NODE_ENV === "production";
 
-  (await cookies()).set("vcrm_api_domain", tokenData.api_domain || location, {
-    httpOnly: false,
-    path: "/",
-    secure: true,
-    maxAge: 60 * 60 * 24 * 30,
-  });
-
-  (await cookies()).set("vcrm_location", location, {
-    httpOnly: false,
-    path: "/",
-    secure: true,
-    maxAge: 60 * 60 * 24 * 30,
-  });
-
-  return NextResponse.redirect("/");
+  if (isProd) {
+    const response = NextResponse.redirect(`${req.nextUrl.origin}/`);
+    response.cookies.set("vcrm_refresh_token", tokenData.refresh_token, {
+      path: "/",
+      secure: true,
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 30,
+    });
+    return response;
+  } else {
+    const html = `
+      <html>
+        <body>
+          <script>
+            document.cookie = "vcrm_refresh_token=${tokenData.refresh_token}; path=/; max-age=2592000; samesite=lax";
+            window.location.href = "/";
+          </script>
+        </body>
+      </html>
+    `;
+    return new Response(html, {
+      headers: { "Content-Type": "text/html" },
+    });
+  }
 }

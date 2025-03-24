@@ -23,23 +23,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const fetchToken = async () => {
     try {
-      const res = await fetch("/api/auth/token");
+      const res = await fetch("/api/auth/token", { credentials: "include" });
       if (!res.ok) throw new Error("Failed to get token");
-      const token = await res.text();
-      localStorage.setItem("vcrm_token", token);
-      localStorage.setItem("vcrm_token_timestamp", Date.now().toString());
+      const data = await res.json();
+      console.log("Token info:", data); // Optional debug
       setTokenStatus("✅ Authenticated");
     } catch (err) {
-      console.error(err)
+      console.error(err);
       setTokenStatus("❌ Auth Failed");
     }
-  };
-
-  const isTokenExpired = () => {
-    const timestamp = localStorage.getItem("vcrm_token_timestamp");
-    if (!timestamp) return true;
-    const age = Date.now() - parseInt(timestamp, 10);
-    return age > 1000 * 60 * 55; // refresh if older than 55 minutes
   };
 
   const handleAuth = () => {
@@ -47,11 +39,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    if (!localStorage.getItem("vcrm_token") || isTokenExpired()) {
-      fetchToken();
-    } else {
-      setTokenStatus("✅ Authenticated");
-    }
+    fetchToken();
   }, []);
 
   return (

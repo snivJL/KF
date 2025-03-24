@@ -30,6 +30,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       localStorage.setItem("vcrm_token_timestamp", Date.now().toString());
       setTokenStatus("✅ Authenticated");
     } catch (err) {
+      console.error(err)
       setTokenStatus("❌ Auth Failed");
     }
   };

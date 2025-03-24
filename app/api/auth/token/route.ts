@@ -12,7 +12,7 @@ export async function GET() {
     refresh_token: refreshToken,
     client_id: process.env.ZOHO_CLIENT_ID!,
     client_secret: process.env.ZOHO_CLIENT_SECRET!,
-    grant_type: "refresh_token",
+    grant_type: "authorization_code",
   });
 
   const tokenUrl = process.env.ACCOUNT_URL!;

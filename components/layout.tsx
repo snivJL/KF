@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Home, Upload, History, LogOut, SunMoon } from "lucide-react";
+import { Home, Upload, History, LogOut, SunMoon, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
@@ -14,6 +14,7 @@ const sidebarLinks = [
   { href: "/upload", label: "Upload", icon: Upload },
   { href: "/history", label: "History", icon: History },
   { href: "/logs", label: "Import Logs", icon: LogOut },
+  { label: "Sync Data", href: "/sync",icon: RefreshCw }
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {

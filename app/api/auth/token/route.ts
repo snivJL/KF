@@ -4,9 +4,9 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(request:NextRequest) {
 
   const cookieStore = await cookies();
-  const refreshToken = cookieStore.get("vcrm_refresh_token")?.value;
+  const refreshToken = cookieStore.get("vcrm_access_token")?.value;
 
-  console.log("TOKEN API received refresh token:", request.cookies.get("vcrm_refresh_token"),refreshToken);
+  console.log("TOKEN API received refresh token:", request.cookies.get("vcrm_access_token"),refreshToken);
 
   if (!refreshToken) {
     return new NextResponse("Not authenticated", { status: 401 });

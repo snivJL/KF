@@ -41,6 +41,7 @@ export function AccountsTab() {
       if (!res.ok) throw new Error(data.error || "Unknown error");
       toast.success(`✅ Synced ${data.synced} accounts.`);
       fetchAccounts();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       toast.error(`❌ ${err.message}`);
     } finally {

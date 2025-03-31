@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAccessToken } from "@/lib/vcrm";
 import axios from "axios";
 import { format } from "date-fns";
+import type { ValidatedInvoice } from "@/types/tedis/invoices";
 
 const BASE_URL = process.env.BASE_URL || "https://kf.zohoplatform.com";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const invoices = body.validatedInvoices;
+    const invoices = body.validatedInvoices as ValidatedInvoice[];
     if (!Array.isArray(invoices)) {
       return NextResponse.json(
         { error: "Missing validated invoices." },
@@ -23,9 +24,14 @@ export async function POST(req: NextRequest) {
     };
 
     const grouped = invoices.reduce(
-      (acc: Record<string, typeof invoices>, invoice) => {
-        if (!acc[invoice.subject]) acc[invoice.subject] = [];
-        acc[invoice.subject].push(invoice);
+      (acc: Record<string, ValidatedInvoice[]>, invoice) => {
+        const subject = invoice.subject;
+        if (!subject) {
+          throw new Error("Invoice is missing subject.");
+        }
+
+        (acc[subject] ??= []).push(invoice); // ✅ Clean and type-safe
+
         return acc;
       },
       {}
@@ -34,8 +40,8 @@ export async function POST(req: NextRequest) {
     const results: { subject: string; success: boolean; error?: string }[] = [];
     for (const invoice of invoices) {
       try {
-        const invoiceGroup = grouped[invoice.subject];
-        const header = invoiceGroup[0];
+        const invoiceGroup = grouped[invoice.subject] as ValidatedInvoice[];
+        const header = invoiceGroup[0] as ValidatedInvoice;
 
         const formattedDate = format(
           new Date(header.invoiceDate),
@@ -45,17 +51,16 @@ export async function POST(req: NextRequest) {
         const payload = {
           Subject: invoice.subject,
           Invoice_Date: formattedDate,
-          Account_Name: { id: header.accountId },
+          Account_Name: { id: header.accountCode },
           Invoiced_Items: invoiceGroup.map((item) => ({
-            Product_Name: { id: item.productId },
-            Assigned_Employee: { id: item.employeeId },
+            Product_Name: { id: item.productCode },
+            Assigned_Employee: { id: item.employeeCode },
             Quantity: item.quantity,
             Total_Discount_on_item: item.discount,
             List_Price: item.listPrice,
           })),
         };
 
-        console.log(payload);
         await axios.post(
           `${BASE_URL}/crm/v6/Invoices`,
           { data: [payload] },

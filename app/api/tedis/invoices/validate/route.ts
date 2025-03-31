@@ -1,27 +1,13 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import type {
+  InvoiceRow,
+  ValidatedInvoice,
+  ValidationResult,
+} from "@/types/tedis/invoices";
 import axios from "axios";
 
 const BASE_URL = process.env.BASE_URL || "https://kf.zohoplatform.com";
-
-type InvoiceRow = Record<string, string | number | null | undefined>;
-
-type ValidationResult = {
-  Row: number;
-  Error: string;
-};
-
-type ValidatedInvoice = {
-  subject: string;
-  invoiceDate: Date;
-  accountId: string;
-  productId: string;
-  employeeId: string;
-  quantity: number;
-  discount: number;
-  listPrice: number;
-  original: InvoiceRow;
-};
 
 const safeFloat = (value: unknown, def = 0.0): number => {
   try {
@@ -84,6 +70,9 @@ export async function POST(req: NextRequest) {
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
+    if (!row) {
+      throw new Error("Invalid row");
+    }
     const rowNum = i + 2;
     const subject = String(row["Invoice D. ID"] || "").trim();
 
@@ -156,9 +145,9 @@ export async function POST(req: NextRequest) {
     validInvoices.push({
       subject,
       invoiceDate,
-      accountId: account.id,
-      productId: product.id,
-      employeeId: employee.id,
+      accountCode: account.id,
+      productCode: product.id,
+      employeeCode: employee.id,
       quantity: safeInt(row["Quantity"]),
       discount: safeFloat(row["Total Discount on item"]),
       listPrice: Math.round(safeFloat(row["List Price per unit (-VAT)"])),

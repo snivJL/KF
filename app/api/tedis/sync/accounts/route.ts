@@ -42,21 +42,11 @@ export async function POST() {
         `${BASE_URL}/crm/bulk/v6/read/${jobId}`,
         { headers }
       );
-      console.log(stateRes.data?.data[0]);
-      // if (stateRes.data?.data[0]?.state === "COMPLETED") {
-      //   downloadUrl = stateRes.data?.data[0]?.result?.download_url;
-      // }
 
       state = stateRes.data?.data[0]?.state;
       console.log("Fetching attempt#", attempts, state);
       attempts++;
     }
-
-    // if (state !== "COMPLETED" || !downloadUrl) {
-    //   throw new Error(
-    //     "Bulk read job did not complete or failed to return a download URL"
-    //   );
-    // }
 
     // Step 3: Download the zip
     const resultUrl = `${BASE_URL}/crm/v6/read/${jobId}/result`;
@@ -65,19 +55,20 @@ export async function POST() {
       headers,
       responseType: "arraybuffer",
     });
-    console.log("zipRes", zipRes);
+
     const zip = new AdmZip(zipRes.data);
     const zipEntries = zip.getEntries();
-    console.log("zipEntries", zipEntries);
+
     if (!zipEntries.length) throw new Error("No files found in the zip");
 
-    const csvContent = zipEntries[0].getData().toString("utf-8");
-    console.log("csvContent", csvContent);
+    const csvContent = zipEntries[0]?.getData().toString("utf-8");
+
+    if (!csvContent) throw new Error("No content found in the zip");
+
     const records = parse(csvContent, {
       columns: true,
       skip_empty_lines: true,
     });
-    console.log("records", records);
 
     for (const row of records) {
       await prisma.account.upsert({

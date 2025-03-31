@@ -47,12 +47,13 @@ export default function UploadPage() {
       const bstr = evt.target?.result;
       try {
         const wb = XLSX.read(bstr, { type: "binary" });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
+        const wsname = wb.SheetNames[0] as string;
+        const ws = wb.Sheets[wsname] as XLSX.WorkSheet;
         const jsonData = XLSX.utils.sheet_to_json<InvoiceRow>(ws, {
           defval: "",
         });
-        const keys = jsonData.length > 0 ? Object.keys(jsonData[0]) : [];
+        const keys =
+          jsonData.length > 0 ? Object.keys(jsonData[0] as InvoiceRow) : [];
         setHeaders(keys);
         setData(jsonData);
         setError(null);

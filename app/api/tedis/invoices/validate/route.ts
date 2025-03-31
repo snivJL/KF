@@ -6,6 +6,7 @@ import type {
   ValidationResult,
 } from "@/types/tedis/invoices";
 import axios from "axios";
+import { format } from "date-fns";
 
 const BASE_URL = process.env.BASE_URL || "https://kf.zohoplatform.com";
 
@@ -24,6 +25,12 @@ const safeInt = (value: unknown, def = 0): number => {
     return def;
   }
 };
+
+function excelDateToJSDate(serial: number): Date {
+  const utcDays = Math.floor(serial - 25569);
+  const utcValue = utcDays * 86400;
+  return new Date(utcValue * 1000);
+}
 
 async function fetchEntitiesFromDB() {
   console.log(
@@ -111,8 +118,14 @@ export async function POST(req: NextRequest) {
       errors.push({ Row: rowNum, Error: `Search failed: ${message}` });
       continue;
     }
+    console.log(row["Invoice Date"]);
+    // const invoiceDate = new Date(row["Invoice Date"] as string);
+    const rawDate = row["Invoice Date"] as string;
+    const invoiceDate =
+      typeof rawDate === "number"
+        ? excelDateToJSDate(rawDate)
+        : new Date(rawDate);
 
-    const invoiceDate = new Date(row["Invoice Date"] as string);
     if (isNaN(invoiceDate.getTime())) {
       console.warn(
         `Row ${rowNum}: Invalid date format '${row["Invoice Date"]}'`
@@ -129,29 +142,41 @@ export async function POST(req: NextRequest) {
     const employee = employeeDict[String(row["Employee Code"] || "").trim()];
 
     if (!account) {
-      console.warn(`Row ${rowNum}: Account not found.`);
-      errors.push({ Row: rowNum, Error: "Account not found." });
+      console.warn(`Row ${rowNum}: Account ${row["Account Code"]} not found.`);
+      errors.push({
+        Row: rowNum,
+        Error: `Account ${row["Account Code"]} not found.`,
+      });
     }
     if (!product) {
-      console.warn(`Row ${rowNum}: Product not found.`);
-      errors.push({ Row: rowNum, Error: "Product not found." });
+      console.warn(`Row ${rowNum}: Product ${row["Product Code"]} not found.`);
+      errors.push({
+        Row: rowNum,
+        Error: `Product ${row["Product Code"]} not found.`,
+      });
     }
     if (!employee) {
-      console.warn(`Row ${rowNum}: Employee not found.`);
-      errors.push({ Row: rowNum, Error: "Employee not found." });
+      console.warn(
+        `Row ${rowNum}: Employee ${row["Employee Code"]} not found.`
+      );
+      errors.push({
+        Row: rowNum,
+        Error: `Employee ${row["Employee Code"]} not found.`,
+      });
     }
     if (!account || !product || !employee) continue;
-
+    console.log(invoiceDate, format(invoiceDate, "yyyy-MM-dd"));
     validInvoices.push({
       subject,
-      invoiceDate,
-      accountCode: account.id,
-      productCode: product.id,
-      employeeCode: employee.id,
+      invoiceDate: format(invoiceDate, "yyyy-MM-dd"),
+      accountId: account.id,
+      productId: product.id,
+      productCode: product.productCode,
+      employeeId: employee.id,
       quantity: safeInt(row["Quantity"]),
       discount: safeFloat(row["Total Discount on item"]),
       listPrice: Math.round(safeFloat(row["List Price per unit (-VAT)"])),
-      original: row,
+      original: { ...row, "Invoice Date": format(invoiceDate, "yyyy-MM-dd") },
     });
   }
 

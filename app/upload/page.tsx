@@ -14,19 +14,8 @@ import {
 } from "@/components/ui/table";
 import axios from "axios";
 import { getCookieValue } from "@/lib/cookies";
-
-type InvoiceRow = Record<string, string | number>;
-
-type ValidatedInvoice = {
-  subject: string;
-  invoiceDate: Date;
-  accountId: string;
-  productId: string;
-  employeeId: string;
-  quantity: number;
-  discount: number;
-  original: InvoiceRow;
-};
+import { toast } from "sonner";
+import type { InvoiceRow, ValidatedInvoice } from "@/types/tedis/invoices";
 
 export default function UploadPage() {
   const [data, setData] = useState<InvoiceRow[]>([]);
@@ -36,7 +25,7 @@ export default function UploadPage() {
     { subject: string; success: boolean; error?: string }[]
   >([]);
   const [errors, setErrors] = useState<{ Row: number; Error: string }[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -56,12 +45,15 @@ export default function UploadPage() {
           jsonData.length > 0 ? Object.keys(jsonData[0] as InvoiceRow) : [];
         setHeaders(keys);
         setData(jsonData);
-        setError(null);
         setValidRows([]);
         setErrors([]);
+        setUploadResults([]);
+        toast.success("✅ File loaded. Ready to validate.");
       } catch (err) {
         console.error(err);
-        setError("Failed to parse the Excel file. Please check the format.");
+        toast.error(
+          "❌ Failed to parse the Excel file. Please check the format."
+        );
       }
     };
     reader.readAsBinaryString(file);
@@ -70,9 +62,10 @@ export default function UploadPage() {
   const handleValidate = async () => {
     const accessToken = getCookieValue("vcrm_access_token");
     if (!accessToken) {
-      setError("Missing VCRM token. Please log in.");
+      toast.error("Missing VCRM token. Please log in.");
       return;
     }
+    setLoading(true);
     try {
       const res = await axios.post("/api/tedis/invoices/validate", {
         rows: data,
@@ -80,41 +73,71 @@ export default function UploadPage() {
       });
       setValidRows(res.data.validInvoices);
       setErrors(res.data.errors);
+      toast.success("✅ Validation complete.");
     } catch (err) {
       console.error(err);
-      setError("Validation failed. Check console for details.");
+      toast.error("❌ Validation failed. Check console for details.");
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleUpload = async () => {
+    setLoading(true);
     try {
       const res = await axios.post("/api/tedis/invoices/upload", {
         validatedInvoices: validRows,
       });
       setUploadResults(res.data.results);
+      toast.success("Upload complete.");
     } catch (err) {
       console.error(err);
-      setError("Upload failed. Check console for details.");
+      toast.error("Upload failed. Check console for details.");
+    } finally {
+      setLoading(false);
     }
   };
-
+  console.log("validRows", validRows);
+  console.log("lala");
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-semibold mb-4">Upload Invoices</h1>
+      <h1 className="text-2xl font-semibold mb-6">📥 Upload Invoices</h1>
 
-      <Input type="file" accept=".xlsx, .xls" onChange={handleFileUpload} />
+      <div className="border border-dashed rounded-lg p-6 text-center mb-6 hover:bg-muted cursor-pointer transition-colors">
+        <Input
+          type="file"
+          accept=".xlsx, .xls"
+          onChange={handleFileUpload}
+          className="hidden"
+          id="file-upload"
+        />
+        <label
+          htmlFor="file-upload"
+          className="cursor-pointer block text-sm text-muted-foreground"
+        >
+          Click or drag an Excel file here to upload
+        </label>
+      </div>
 
       {data.length > 0 && (
-        <Button className="mt-4" onClick={handleValidate}>
-          Validate
-        </Button>
+        <div className="flex items-center gap-4 mb-4">
+          <Button onClick={handleValidate} disabled={loading}>
+            {loading ? "Validating..." : "Validate"}
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            📄 {data.length} row{data.length !== 1 ? "s" : ""} loaded
+          </span>
+        </div>
       )}
-
-      {error && <p className="text-red-500 mt-2">{error}</p>}
 
       {validRows.length > 0 && (
         <div className="mt-8">
-          <h2 className="text-lg font-semibold mb-2">✅ Valid Invoices</h2>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-lg font-semibold">✅ Valid Invoices</h2>
+            <Button onClick={handleUpload} disabled={loading}>
+              {loading ? "Uploading..." : "Upload to VCRM"}
+            </Button>
+          </div>
           <div className="overflow-x-auto border rounded-md">
             <Table>
               <TableHeader>
@@ -126,7 +149,7 @@ export default function UploadPage() {
               </TableHeader>
               <TableBody>
                 {validRows.map((entry, i) => (
-                  <TableRow key={i}>
+                  <TableRow key={i} className="hover:bg-muted/40">
                     {headers.map((header) => (
                       <TableCell key={header}>
                         {entry.original?.[header]}
@@ -153,7 +176,7 @@ export default function UploadPage() {
               </TableHeader>
               <TableBody>
                 {errors.map((err, idx) => (
-                  <TableRow key={idx}>
+                  <TableRow key={idx} className="hover:bg-muted/40">
                     <TableCell>{err.Row}</TableCell>
                     <TableCell>{err.Error}</TableCell>
                   </TableRow>
@@ -163,9 +186,7 @@ export default function UploadPage() {
           </div>
         </div>
       )}
-      <Button className="mt-4" onClick={handleUpload}>
-        Upload to VCRM
-      </Button>
+
       {uploadResults.length > 0 && (
         <div className="mt-8">
           <h2 className="text-lg font-semibold mb-2">🚀 Upload Results</h2>
@@ -180,7 +201,7 @@ export default function UploadPage() {
               </TableHeader>
               <TableBody>
                 {uploadResults.map((r, i) => (
-                  <TableRow key={i}>
+                  <TableRow key={i} className="hover:bg-muted/40">
                     <TableCell>{r.subject}</TableCell>
                     <TableCell>
                       {r.success ? "✅ Success" : "❌ Failed"}

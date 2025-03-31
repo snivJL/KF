@@ -15,10 +15,10 @@ model Account {
 }
 
 model Product {
-  id           String   @id
-  productCode  String   @unique
-  name         String?
-  updatedAt    DateTime @updatedAt
+  id          String   @id
+  productCode String   @unique
+  name        String?
+  updatedAt   DateTime @updatedAt
 }
 
 model Employee {
@@ -26,4 +26,9 @@ model Employee {
   code      String   @unique
   name      String?
   updatedAt DateTime @updatedAt
+}
+
+model InvoiceItemCounter {
+  id     Int    @id @default(1)
+  lastId String
 }

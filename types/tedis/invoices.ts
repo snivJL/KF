@@ -7,12 +7,17 @@ export type ValidationResult = {
 
 export type ValidatedInvoice = {
   subject: string;
-  invoiceDate: Date;
-  accountCode: string;
+  invoiceDate: string;
+  accountId: string;
+  productId: string;
   productCode: string;
-  employeeCode: string;
+  employeeId: string;
   quantity: number;
   discount: number;
   listPrice: number;
   original?: InvoiceRow;
+};
+
+export type EnrichedValidatedInvoice = ValidatedInvoice & {
+  itemId: number;
 };

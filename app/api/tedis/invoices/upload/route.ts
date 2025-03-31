@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAccessToken } from "@/lib/vcrm";
 import axios from "axios";
 import { format } from "date-fns";
-import type { ValidatedInvoice } from "@/types/tedis/invoices";
+import type {
+  EnrichedValidatedInvoice,
+  ValidatedInvoice,
+} from "@/types/tedis/invoices";
+import { prisma } from "@/lib/prisma";
 
 const BASE_URL = process.env.BASE_URL || "https://kf.zohoplatform.com";
 
@@ -23,51 +27,58 @@ export async function POST(req: NextRequest) {
       "Content-Type": "application/json",
     };
 
-    const grouped = invoices.reduce(
-      (acc: Record<string, ValidatedInvoice[]>, invoice) => {
+    const lastInvoiceItemId = await prisma.invoiceItemCounter.findFirst();
+    let currentInvoiceItemId = parseInt(lastInvoiceItemId?.lastId || "1", 10);
+
+    const enriched = invoices.map((row) => {
+      return { ...row, itemId: ++currentInvoiceItemId };
+    }) as EnrichedValidatedInvoice[];
+
+    const grouped = enriched.reduce(
+      (acc: Record<string, EnrichedValidatedInvoice[]>, invoice) => {
         const subject = invoice.subject;
         if (!subject) {
           throw new Error("Invoice is missing subject.");
         }
 
-        (acc[subject] ??= []).push(invoice); // ✅ Clean and type-safe
+        (acc[subject] ??= []).push(invoice);
 
         return acc;
       },
       {}
     );
-    console.log(grouped);
     const results: { subject: string; success: boolean; error?: string }[] = [];
-    for (const invoice of invoices) {
+    for (const [invoiceNo, group] of Object.entries(grouped)) {
+      if (!group || group.length === 0) continue;
+
+      const first = group[0]!;
+      const formattedDate = format(new Date(first.invoiceDate), "ddMMyy");
+
+      const subject = `${formattedDate} ${invoiceNo} ${group[0]?.itemId}`;
+      console.log(group);
+
+      const payload = {
+        Subject: subject,
+        Invoice_Date: format(new Date(first.invoiceDate), "yyyy-MM-dd"),
+        Account_Name: { id: first.accountId },
+        Invoiced_Items: group.map((item) => ({
+          Product_Name: { id: item.productId },
+          Product_Code: item.productCode,
+          Assigned_Employee: { id: item.employeeId },
+          Quantity: item.quantity,
+          Discount: item.discount,
+          List_Price: item.listPrice,
+        })),
+      };
+
       try {
-        const invoiceGroup = grouped[invoice.subject] as ValidatedInvoice[];
-        const header = invoiceGroup[0] as ValidatedInvoice;
-
-        const formattedDate = format(
-          new Date(header.invoiceDate),
-          "yyyy-MM-dd"
-        );
-
-        const payload = {
-          Subject: invoice.subject,
-          Invoice_Date: formattedDate,
-          Account_Name: { id: header.accountCode },
-          Invoiced_Items: invoiceGroup.map((item) => ({
-            Product_Name: { id: item.productCode },
-            Assigned_Employee: { id: item.employeeCode },
-            Quantity: item.quantity,
-            Total_Discount_on_item: item.discount,
-            List_Price: item.listPrice,
-          })),
-        };
-
         await axios.post(
           `${BASE_URL}/crm/v6/Invoices`,
           { data: [payload] },
           { headers }
         );
 
-        results.push({ subject: invoice.subject, success: true });
+        results.push({ subject, success: true });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
         if (axios.isAxiosError(err)) {
@@ -78,16 +89,20 @@ export async function POST(req: NextRequest) {
           console.error("Headers:", err.config?.headers);
           console.error("Error Details", err.response?.data?.data[0]?.details);
         }
+
         const message =
           err.response?.data?.message || err.message || "Unknown error";
-        console.error(`Failed to upload invoice ${invoice.subject}:`, message);
-        results.push({
-          subject: invoice.subject,
-          success: false,
-          error: message,
-        });
+        console.error(`Failed to upload invoice ${subject}:`, message);
+        results.push({ subject, success: false, error: message });
       }
     }
+
+    const newLastId = currentInvoiceItemId.toString();
+    await prisma.invoiceItemCounter.upsert({
+      where: { id: 1 },
+      update: { lastId: newLastId },
+      create: { id: 1, lastId: newLastId },
+    });
 
     const successCount = results.filter((r) => r.success).length;
     const failCount = results.length - successCount;

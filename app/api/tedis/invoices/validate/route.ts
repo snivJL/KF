@@ -31,6 +31,9 @@ function excelDateToJSDate(serial: number): Date {
   const utcValue = utcDays * 86400;
   return new Date(utcValue * 1000);
 }
+type Account = import("@prisma/client").Account;
+type Product = import("@prisma/client").Product;
+type Employee = import("@prisma/client").Employee;
 
 async function fetchEntitiesFromDB() {
   console.log(
@@ -63,13 +66,13 @@ export async function POST(req: NextRequest) {
 
   const entities = await fetchEntitiesFromDB();
   const accountDict = Object.fromEntries(
-    entities.Accounts.map((a) => [a.code, a])
+    entities.Accounts.map((a: Account) => [a.code, a])
   );
   const productDict = Object.fromEntries(
-    entities.Products.map((p) => [p.productCode, p])
+    entities.Products.map((p: Product) => [p.productCode, p])
   );
   const employeeDict = Object.fromEntries(
-    entities.Employees.map((e) => [e.code, e])
+    entities.Employees.map((e: Employee) => [e.code, e])
   );
 
   const validInvoices: ValidatedInvoice[] = [];

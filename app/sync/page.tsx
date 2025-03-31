@@ -1,7 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProductsTab } from "@/components/sync/products-tab";
 import { EmployeesTab } from "@/components/sync/employees-tab";
-import { AccountsTab } from "@/components/sync/accounts-tab";
+import AccountsTab from "@/components/sync/accounts-tab";
 
 export default function SyncDataPage() {
   return (

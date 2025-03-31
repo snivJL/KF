@@ -8,10 +8,15 @@ datasource db {
 }
 
 model Account {
-  id        String   @id
-  code      String   @unique
-  name      String?
-  updatedAt DateTime @updatedAt
+  id               String   @id
+  code             String   @unique
+  name             String?
+  updatedAt        DateTime @updatedAt
+  shippingCity     String?
+  shippingCode     String?
+  shippingCountry  String?
+  shippingProvince String?
+  shippingStreet   String?
 }
 
 model Product {

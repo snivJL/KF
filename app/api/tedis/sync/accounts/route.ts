@@ -16,23 +16,34 @@ export async function POST() {
       Authorization: `Zoho-oauthtoken ${accessToken}`,
       "Content-Type": "application/json",
     };
+
     // Step 1: Create bulk read job
+    console.log("Creating bulk read job...");
     const createRes = await axios.post(
       `${BASE_URL}/crm/bulk/v6/read`,
       {
         query: {
           module: { api_name: "Accounts" },
-          fields: ["id", "Code", "Account_Name"],
+          fields: [
+            "Code",
+            "Account_Name",
+            "Shipping_City",
+            "Shipping_State",
+            // "Shipping_Code",
+            "Shipping_Country",
+            "Shipping_Street",
+          ],
         },
       },
       { headers }
     );
 
+    console.log("Bulk read job creation response:", createRes.data);
     const jobId = createRes.data?.data[0]?.details?.id;
-    console.log(createRes.data);
     if (!jobId) throw new Error("Failed to create bulk read job");
 
     // Step 2: Poll for completion
+    console.log("Polling for job completion...");
     let state = "IN_PROGRESS";
     let attempts = 0;
 
@@ -44,44 +55,73 @@ export async function POST() {
       );
 
       state = stateRes.data?.data[0]?.state;
-      console.log("Fetching attempt#", attempts, state);
+      console.log(`Polling attempt #${attempts + 1}: State = ${state}`);
       attempts++;
     }
 
+    if (state !== "COMPLETED") {
+      console.error("Job did not complete in time");
+      throw new Error("Bulk read job did not complete");
+    }
+
     // Step 3: Download the zip
-    const resultUrl = `${BASE_URL}/crm/v6/read/${jobId}/result`;
+    const resultUrl = `${BASE_URL}/crm/bulk/v6/read/${jobId}/result`;
+
+    console.log("Downloading result from:", resultUrl);
 
     const zipRes = await axios.get(resultUrl, {
-      headers,
+      headers: {
+        Authorization: `Zoho-oauthtoken ${accessToken}`,
+        Accept: "application/zip",
+      },
       responseType: "arraybuffer",
     });
 
+    console.log("First bytes of ZIP:", zipRes.data.slice(0, 4));
+
     const zip = new AdmZip(zipRes.data);
     const zipEntries = zip.getEntries();
+    console.log(
+      "Zip entries found:",
+      zipEntries.map((e) => e.entryName)
+    );
 
     if (!zipEntries.length) throw new Error("No files found in the zip");
 
     const csvContent = zipEntries[0]?.getData().toString("utf-8");
-
     if (!csvContent) throw new Error("No content found in the zip");
 
+    console.log("Parsing CSV content...");
     const records = parse(csvContent, {
       columns: true,
       skip_empty_lines: true,
     });
 
+    console.log(`Parsed ${records.length} records.`);
+
     for (const row of records) {
+      console.log("Upserting account:", row);
       await prisma.account.upsert({
-        where: { id: row.id },
+        where: { id: row["Id"] },
         update: {
           code: row.Code,
           name: row.Account_Name,
+          shippingStreet: row["Shipping_Street"],
+          shippingCity: row["Shipping_City"],
+          shippingCode: row["Shipping_Code"],
+          shippingCountry: row["Shipping_Country"],
+          shippingProvince: row["Shipping_State"],
           updatedAt: new Date(),
         },
         create: {
-          id: row.id,
+          id: row["Id"],
           code: row.Code,
           name: row.Account_Name,
+          shippingStreet: row["Shipping_Street"],
+          shippingCity: row["Shipping_City"],
+          shippingCode: row["Shipping_Code"],
+          shippingCountry: row["Shipping_Country"],
+          shippingProvince: row["Shipping_State"],
           updatedAt: new Date(),
         },
       });

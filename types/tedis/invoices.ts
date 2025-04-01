@@ -12,6 +12,11 @@ export type ValidatedInvoice = {
   productId: string;
   productCode: string;
   employeeId: string;
+  shippingCity: string | null;
+  shippingCode: string | null;
+  shippingCountry: string | null;
+  shippingProvince: string | null;
+  shippingStreet: string | null;
   quantity: number;
   discount: number;
   listPrice: number;

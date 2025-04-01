@@ -29,7 +29,7 @@ export async function POST() {
             "Account_Name",
             "Shipping_City",
             "Shipping_State",
-            // "Shipping_Code",
+            "Shipping_Code",
             "Shipping_Country",
             "Shipping_Street",
           ],

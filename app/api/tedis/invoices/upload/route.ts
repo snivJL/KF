@@ -7,6 +7,7 @@ import type {
   ValidatedInvoice,
 } from "@/types/tedis/invoices";
 import { prisma } from "@/lib/prisma";
+import { parseAxiosError } from "@/lib/errors";
 
 const BASE_URL = process.env.BASE_URL || "https://kf.zohoplatform.com";
 
@@ -30,36 +31,47 @@ export async function POST(req: NextRequest) {
     const lastInvoiceItemId = await prisma.invoiceItemCounter.findFirst();
     let currentInvoiceItemId = parseInt(lastInvoiceItemId?.lastId || "1", 10);
 
-    const enriched = invoices.map((row) => {
-      return { ...row, itemId: ++currentInvoiceItemId };
-    }) as EnrichedValidatedInvoice[];
+    const enriched: EnrichedValidatedInvoice[] = invoices.map((row) => ({
+      ...row,
+      itemId: ++currentInvoiceItemId,
+    }));
 
-    const grouped = enriched.reduce(
-      (acc: Record<string, EnrichedValidatedInvoice[]>, invoice) => {
-        const subject = invoice.subject;
-        if (!subject) {
-          throw new Error("Invoice is missing subject.");
-        }
+    // Group by consecutive subjects only
+    const grouped: EnrichedValidatedInvoice[][] = [];
+    let currentGroup: EnrichedValidatedInvoice[] = [];
 
-        (acc[subject] ??= []).push(invoice);
+    enriched.forEach((current, i) => {
+      const previous = enriched[i - 1];
 
-        return acc;
-      },
-      {}
-    );
+      if (!previous || current.subject === previous.subject) {
+        currentGroup.push(current);
+      } else {
+        grouped.push(currentGroup);
+        currentGroup = [current];
+      }
+    });
+
+    if (currentGroup.length > 0) {
+      grouped.push(currentGroup);
+    }
+
     const results: { subject: string; success: boolean; error?: string }[] = [];
-    for (const [invoiceNo, group] of Object.entries(grouped)) {
-      if (!group || group.length === 0) continue;
+
+    for (const group of grouped) {
+      if (!group.length) continue;
 
       const first = group[0]!;
       const formattedDate = format(new Date(first.invoiceDate), "ddMMyy");
-
-      const subject = `${formattedDate} ${invoiceNo} ${group[0]?.itemId}`;
-      console.log(group);
+      const subject = `${formattedDate} ${first.subject} ${first.itemId}`;
 
       const payload = {
         Subject: subject,
         Invoice_Date: format(new Date(first.invoiceDate), "yyyy-MM-dd"),
+        Billing_Street: first.shippingStreet,
+        Billing_City: first.shippingCity,
+        Billing_Code: first.shippingCode,
+        Billing_Country: first.shippingCountry,
+        Billing_State: first.shippingProvince,
         Account_Name: { id: first.accountId },
         Invoiced_Items: group.map((item) => ({
           Product_Name: { id: item.productId },
@@ -79,29 +91,18 @@ export async function POST(req: NextRequest) {
         );
 
         results.push({ subject, success: true });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } catch (err: any) {
-        if (axios.isAxiosError(err)) {
-          console.error("Zoho API Error:");
-          console.error("Status:", err.response?.status);
-          console.error("Data:", err.response?.data);
-          console.error("URL:", err.config?.url);
-          console.error("Headers:", err.config?.headers);
-          console.error("Error Details", err.response?.data?.data[0]?.details);
-        }
-
-        const message =
-          err.response?.data?.message || err.message || "Unknown error";
+      } catch (err) {
+        const { message } = parseAxiosError(err);
         console.error(`Failed to upload invoice ${subject}:`, message);
         results.push({ subject, success: false, error: message });
       }
     }
 
-    const newLastId = currentInvoiceItemId.toString();
+    // Update invoice item counter in DB
     await prisma.invoiceItemCounter.upsert({
       where: { id: 1 },
-      update: { lastId: newLastId },
-      create: { id: 1, lastId: newLastId },
+      update: { lastId: currentInvoiceItemId.toString() },
+      create: { id: 1, lastId: currentInvoiceItemId.toString() },
     });
 
     const successCount = results.filter((r) => r.success).length;
@@ -113,7 +114,7 @@ export async function POST(req: NextRequest) {
       results,
     });
   } catch (err) {
-    console.error("Unexpected upload error:", err);
+    console.error("❌ Unexpected upload error:", err);
     return NextResponse.json(
       { error: "Internal server error." },
       { status: 500 }

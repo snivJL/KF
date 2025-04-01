@@ -98,7 +98,7 @@ export default function UploadPage() {
     }
   };
   console.log("validRows", validRows);
-  console.log("lala");
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <h1 className="text-2xl font-semibold mb-6">📥 Upload Invoices</h1>

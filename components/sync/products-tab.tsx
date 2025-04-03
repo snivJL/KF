@@ -39,14 +39,30 @@ export function ProductsTab() {
     setLoading(true);
     try {
       const res = await fetch("/api/tedis/sync/products", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Unknown error");
-      toast.success(`Synced ${data.synced} products.`);
-      fetchProducts();
+      const { jobId } = await res.json();
+      console.log("jobId", jobId);
+      if (!jobId) throw new Error("Failed to start sync job");
+
+      const interval = setInterval(async () => {
+        const statusRes = await fetch(
+          `/api/tedis/sync/products/status?jobId=${jobId}`
+        );
+        const status = await statusRes.json();
+        console.log("status", jobId, " ", status);
+        if (status.status === "success") {
+          clearInterval(interval);
+          toast.success(`Synced ${status.synced} products.`);
+          fetchProducts();
+          setLoading(false);
+        } else if (status.status === "error") {
+          clearInterval(interval);
+          toast.error(`Sync failed: ${status.error}`);
+          setLoading(false);
+        }
+      }, 1500);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      toast.error(`${err.message}`);
-    } finally {
+      toast.error(err.message);
       setLoading(false);
     }
   };

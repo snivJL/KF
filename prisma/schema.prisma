@@ -37,3 +37,27 @@ model InvoiceItemCounter {
   id     Int    @id @default(1)
   lastId String
 }
+
+enum SyncModule {
+  products
+  accounts
+  employees
+  invoices
+}
+
+enum SyncStatus {
+  queued
+  processing
+  success
+  error
+}
+
+model SyncJob {
+  id        String     @id @default(uuid())
+  module    SyncModule
+  status    SyncStatus
+  synced    Int?
+  error     String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}

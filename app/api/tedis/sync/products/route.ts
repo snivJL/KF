@@ -1,37 +1,79 @@
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import { getAccessToken } from "@/lib/vcrm";
 import axios from "axios";
-import { prisma } from "@/lib/prisma";
-
-const BASE_URL = "https://kf.zohoplatform.com";
 
 export async function POST() {
-  try {
-    const accessToken = await getAccessToken();
-    const headers = { Authorization: `Bearer ${accessToken}` };
+  const job = await prisma.syncJob.create({
+    data: {
+      module: "products",
+      status: "queued",
+    },
+  });
 
-    const response = await axios.get(`${BASE_URL}/crm/v6/Products?fields=id,Product_Code,Product_Name`, { headers });
-    const products = response.data?.data || [];
+  // Start background task without waiting
+  syncProductsInBackground(job.id);
 
-    for (const p of products) {
-      await prisma.product.upsert({
-        where: { id: p.id },
-        update: {
-          productCode: p.Product_Code,
-          name: p.Product_Name,
+  return NextResponse.json({ jobId: job.id });
+}
+
+async function syncProductsInBackground(jobId: string) {
+  // Run in background without blocking
+  setTimeout(async () => {
+    try {
+      await prisma.syncJob.update({
+        where: { id: jobId },
+        data: { status: "processing" },
+      });
+
+      const synced = await performProductSync();
+      await prisma.syncJob.update({
+        where: { id: jobId },
+        data: {
+          status: "success",
+          synced,
         },
-        create: {
-          id: p.id,
-          productCode: p.Product_Code,
-          name: p.Product_Name,
-          updatedAt: new Date(),
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      await prisma.syncJob.update({
+        where: { id: jobId },
+        data: {
+          status: "error",
+          error: err.message ?? "Unknown error",
         },
       });
     }
+  }, 0); // async fire-and-forget
+}
 
-    return NextResponse.json({ synced: products.length });
-  } catch (err) {
-    console.error("Sync failed:", err);
-    return NextResponse.json({ error: "Failed to sync products." }, { status: 500 });
+export async function performProductSync(): Promise<number> {
+  const accessToken = await getAccessToken();
+  const headers = { Authorization: `Bearer ${accessToken}` };
+
+  const response = await axios.get(
+    `${process.env.BASE_URL}/crm/v6/Products?fields=id,Product_Code,Product_Name`,
+    { headers }
+  );
+
+  const products = response.data?.data || [];
+
+  for (const p of products) {
+    await prisma.product.upsert({
+      where: { id: p.id },
+      update: {
+        productCode: p.Product_Code,
+        name: p.Product_Name,
+        updatedAt: new Date(),
+      },
+      create: {
+        id: p.id,
+        productCode: p.Product_Code,
+        name: p.Product_Name,
+        updatedAt: new Date(),
+      },
+    });
   }
+
+  return products.length;
 }

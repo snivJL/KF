@@ -41,11 +41,11 @@ export function ProductsTab() {
       const res = await fetch("/api/tedis/sync/products", { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Unknown error");
-      toast.success(`✅ Synced ${data.synced} products.`);
+      toast.success(`Synced ${data.synced} products.`);
       fetchProducts();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      toast.error(`❌ ${err.message}`);
+      toast.error(`${err.message}`);
     } finally {
       setLoading(false);
     }

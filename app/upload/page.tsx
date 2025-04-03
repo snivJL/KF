@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,60 +11,63 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import axios from "axios";
 import { getCookieValue } from "@/lib/cookies";
 import { toast } from "sonner";
 import type { InvoiceRow, ValidatedInvoice } from "@/types/tedis/invoices";
+import { Loader2 } from "lucide-react";
+import { getCurrentCounter, updateCounter } from "@/lib/tedis/invoiceCounter";
+import { groupConsecutively, parseInvoiceExcel } from "@/lib/invoices";
+
+type UploadProgress = {
+  total: number;
+  current: number;
+  successes: number;
+  failures: number;
+};
+
+type UploadResult = { subject: string; success: boolean; error?: string };
 
 export default function UploadPage() {
   const [data, setData] = useState<InvoiceRow[]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
+  const [progress, setProgress] = useState<UploadProgress | null>(null);
   const [validRows, setValidRows] = useState<ValidatedInvoice[]>([]);
-  const [uploadResults, setUploadResults] = useState<
-    { subject: string; success: boolean; error?: string }[]
-  >([]);
+  const [uploadResults, setUploadResults] = useState<UploadResult[]>([]);
   const [errors, setErrors] = useState<{ Row: number; Error: string }[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [validating, setValidating] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      const bstr = evt.target?.result;
-      try {
-        const wb = XLSX.read(bstr, { type: "binary" });
-        const wsname = wb.SheetNames[0] as string;
-        const ws = wb.Sheets[wsname] as XLSX.WorkSheet;
-        const jsonData = XLSX.utils.sheet_to_json<InvoiceRow>(ws, {
-          defval: "",
-        });
-        const keys =
-          jsonData.length > 0 ? Object.keys(jsonData[0] as InvoiceRow) : [];
-        setHeaders(keys);
-        setData(jsonData);
-        setValidRows([]);
-        setErrors([]);
-        setUploadResults([]);
-        toast.success("✅ File loaded. Ready to validate.");
-      } catch (err) {
-        console.error(err);
-        toast.error(
-          "❌ Failed to parse the Excel file. Please check the format."
-        );
-      }
-    };
-    reader.readAsBinaryString(file);
+    try {
+      const { data: json, headers } = await parseInvoiceExcel(file);
+      setData(json);
+      setHeaders(headers);
+      setValidRows([]);
+      setErrors([]);
+      setUploadResults([]);
+      setProgress(null);
+      toast.success("File loaded. Ready to validate.");
+    } catch (err) {
+      console.error("Excel parsing error:", err);
+      toast.error("Failed to parse the Excel file.");
+    }
   };
 
   const handleValidate = async () => {
     const accessToken = getCookieValue("vcrm_access_token");
-    if (!accessToken) {
-      toast.error("Missing VCRM token. Please log in.");
-      return;
-    }
-    setLoading(true);
+    if (!accessToken) return toast.error("Missing VCRM token. Please log in.");
+
+    setValidating(true);
     try {
       const res = await axios.post("/api/tedis/invoices/validate", {
         rows: data,
@@ -73,31 +75,67 @@ export default function UploadPage() {
       });
       setValidRows(res.data.validInvoices);
       setErrors(res.data.errors);
-      toast.success("✅ Validation complete.");
+      toast.success("Validation complete.");
     } catch (err) {
       console.error(err);
-      toast.error("❌ Validation failed. Check console for details.");
+      toast.error("Validation failed.");
     } finally {
-      setLoading(false);
+      setValidating(false);
     }
   };
 
   const handleUpload = async () => {
-    setLoading(true);
-    try {
-      const res = await axios.post("/api/tedis/invoices/upload", {
-        validatedInvoices: validRows,
-      });
-      setUploadResults(res.data.results);
-      toast.success("Upload complete.");
-    } catch (err) {
-      console.error(err);
-      toast.error("Upload failed. Check console for details.");
-    } finally {
-      setLoading(false);
+    const accessToken = getCookieValue("vcrm_access_token");
+    if (!accessToken) return toast.error("Missing VCRM token.");
+
+    const groups = groupConsecutively(validRows);
+    const startingId = await getCurrentCounter();
+
+    if (!startingId) {
+      return;
     }
+    let currentId = startingId;
+    let successes = 0;
+    let failures = 0;
+
+    setUploading(true);
+    setProgress({ total: groups.length, current: 0, successes, failures });
+
+    const results: UploadResult[] = [];
+
+    for (let i = 0; i < groups.length; i++) {
+      try {
+        const res = await axios.post("/api/tedis/invoices/upload-group", {
+          group: groups[i],
+          currentItemId: currentId,
+        });
+        results.push({ subject: res.data.subject, success: true });
+        successes++;
+      } catch (err) {
+        const message = axios.isAxiosError(err)
+          ? err.response?.data?.error || err.message
+          : "Unknown error";
+        results.push({
+          subject: groups[i]?.[0]?.subject || "undefined",
+          success: false,
+          error: message,
+        });
+        failures++;
+      } finally {
+        setProgress({
+          total: groups.length,
+          current: i + 1,
+          successes,
+          failures,
+        });
+        currentId++;
+      }
+    }
+
+    await updateCounter(currentId);
+    setUploading(false);
+    setUploadResults(results);
   };
-  console.log("validRows", validRows);
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -121,8 +159,9 @@ export default function UploadPage() {
 
       {data.length > 0 && (
         <div className="flex items-center gap-4 mb-4">
-          <Button onClick={handleValidate} disabled={loading}>
-            {loading ? "Validating..." : "Validate"}
+          <Button onClick={handleValidate} disabled={validating}>
+            {validating && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+            {validating ? "Validating..." : "Validate"}
           </Button>
           <span className="text-sm text-muted-foreground">
             📄 {data.length} row{data.length !== 1 ? "s" : ""} loaded
@@ -130,66 +169,99 @@ export default function UploadPage() {
         </div>
       )}
 
+      <Accordion type="multiple" className="mt-6 space-y-4">
+        {validRows.length > 0 && (
+          <AccordionItem value="valid">
+            <AccordionTrigger>
+              <h2 className="text-xl">✅ Validated Invoices</h2>
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="overflow-x-auto border rounded-md mb-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {headers.map((h) => (
+                        <TableHead key={h}>{h}</TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {validRows.map((row, i) => (
+                      <TableRow key={i}>
+                        {headers.map((h) => (
+                          <TableCell key={h}>{row.original?.[h]}</TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        )}
+
+        {errors.length > 0 && (
+          <AccordionItem value="errors">
+            <AccordionTrigger>❌ Validation Errors</AccordionTrigger>
+            <AccordionContent>
+              <div className="overflow-x-auto border rounded-md mb-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Row</TableHead>
+                      <TableHead>Error</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {errors.map((e, i) => (
+                      <TableRow key={i}>
+                        <TableCell>{e.Row}</TableCell>
+                        <TableCell>{e.Error}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        )}
+      </Accordion>
+
       {validRows.length > 0 && (
-        <div className="mt-8">
+        <div className="mt-6 border rounded-lg p-6 shadow-sm bg-background">
           <div className="flex items-center justify-between mb-2">
-            <h2 className="text-lg font-semibold">✅ Valid Invoices</h2>
-            <Button onClick={handleUpload} disabled={loading}>
-              {loading ? "Uploading..." : "Upload to VCRM"}
+            <h2 className="text-lg font-semibold">Upload to VCRM</h2>
+            <Button onClick={handleUpload} disabled={uploading}>
+              {uploading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              {uploading ? "Uploading..." : "Upload"}
             </Button>
           </div>
-          <div className="overflow-x-auto border rounded-md">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {headers.map((header) => (
-                    <TableHead key={header}>{header}</TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {validRows.map((entry, i) => (
-                  <TableRow key={i} className="hover:bg-muted/40">
-                    {headers.map((header) => (
-                      <TableCell key={header}>
-                        {entry.original?.[header]}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-      )}
 
-      {errors.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-lg font-semibold mb-2">❌ Validation Errors</h2>
-          <div className="overflow-x-auto border rounded-md">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Row</TableHead>
-                  <TableHead>Error</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {errors.map((err, idx) => (
-                  <TableRow key={idx} className="hover:bg-muted/40">
-                    <TableCell>{err.Row}</TableCell>
-                    <TableCell>{err.Error}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+          {progress && (
+            <>
+              <div className="mb-1 text-sm text-muted-foreground">
+                Uploading {progress.current} / {progress.total} grouped invoices
+                ({validRows.length} total invoice items)
+              </div>
+              <div className="w-full bg-muted rounded-full h-5">
+                <div
+                  className="bg-primary h-5 rounded-full transition-all duration-300 ease-in-out"
+                  style={{
+                    width: `${(progress.current / progress.total) * 100}%`,
+                  }}
+                />
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                ✅ {progress.successes} | ❌ {progress.failures}
+              </div>
+            </>
+          )}
         </div>
       )}
 
       {uploadResults.length > 0 && (
         <div className="mt-8">
-          <h2 className="text-lg font-semibold mb-2">🚀 Upload Results</h2>
+          <h2 className="text-lg font-semibold mb-2">📦 Upload Results</h2>
           <div className="overflow-x-auto border rounded-md">
             <Table>
               <TableHeader>
@@ -201,7 +273,7 @@ export default function UploadPage() {
               </TableHeader>
               <TableBody>
                 {uploadResults.map((r, i) => (
-                  <TableRow key={i} className="hover:bg-muted/40">
+                  <TableRow key={i}>
                     <TableCell>{r.subject}</TableCell>
                     <TableCell>
                       {r.success ? "✅ Success" : "❌ Failed"}

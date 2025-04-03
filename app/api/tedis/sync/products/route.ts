@@ -47,7 +47,7 @@ async function syncProductsInBackground(jobId: string) {
   }, 0); // async fire-and-forget
 }
 
-export async function performProductSync(): Promise<number> {
+async function performProductSync(): Promise<number> {
   const accessToken = await getAccessToken();
   const headers = { Authorization: `Bearer ${accessToken}` };
 

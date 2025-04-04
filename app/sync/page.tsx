@@ -5,27 +5,37 @@ import AccountsTab from "@/components/sync/accounts-tab";
 
 export default function SyncDataPage() {
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-2xl font-semibold mb-6">🔄 Sync Data from VCRM</h1>
+    <div className="pb-6 max-w-7xl mx-auto">
+      <Tabs defaultValue="products" className="flex flex-col">
+        {/* Sticky Header inside Tabs */}
+        <div className="sticky top-0 z-30 bg-background shadow-b-sm ">
+          <div className="p-6 pb-4">
+            <h1 className="text-2xl font-semibold">🔄 Sync Data from VCRM</h1>
+          </div>
 
-      <Tabs defaultValue="products" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="products">Products</TabsTrigger>
-          <TabsTrigger value="employees">Employees</TabsTrigger>
-          <TabsTrigger value="accounts">Accounts</TabsTrigger>
-        </TabsList>
+          <div className="px-6">
+            <TabsList className="w-full">
+              <TabsTrigger value="products">Products</TabsTrigger>
+              <TabsTrigger value="employees">Employees</TabsTrigger>
+              <TabsTrigger value="accounts">Accounts</TabsTrigger>
+            </TabsList>
+          </div>
+        </div>
 
-        <TabsContent value="products">
-          <ProductsTab />
-        </TabsContent>
+        {/* Scrollable Content inside Tabs */}
+        <div className="flex-1 px-6">
+          <TabsContent value="products">
+            <ProductsTab />
+          </TabsContent>
 
-        <TabsContent value="employees">
-          <EmployeesTab />
-        </TabsContent>
+          <TabsContent value="employees">
+            <EmployeesTab />
+          </TabsContent>
 
-        <TabsContent value="accounts">
-          <AccountsTab />
-        </TabsContent>
+          <TabsContent value="accounts">
+            <AccountsTab />
+          </TabsContent>
+        </div>
       </Tabs>
     </div>
   );

@@ -13,6 +13,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { fetchWithAuth } from "@/lib/auth";
+import { useDebounce } from "@/hooks/useDebounce";
+import { TableSkeleton } from "../ui/table-skeleton";
 import { Loader2, RefreshCw } from "lucide-react";
 
 type Product = {
@@ -22,37 +25,64 @@ type Product = {
   updatedAt: string;
 };
 
+const PAGE_SIZE = 20;
+
 export function ProductsTab() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<keyof Product>("updatedAt");
   const [sortAsc, setSortAsc] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingTable, setLoadingTable] = useState(false);
+  const debouncedSearch = useDebounce(search);
 
-  const fetchProducts = async () => {
-    const res = await fetch("/api/tedis/products");
+  const fetchProducts = async (options: {
+    page?: number;
+    search?: string;
+    sortKey?: keyof Product;
+    sortAsc?: boolean;
+  }) => {
+    setLoadingTable(true);
+
+    const {
+      page = 0,
+      search = "",
+      sortKey = "updatedAt",
+      sortAsc = false,
+    } = options;
+
+    const offset = page * PAGE_SIZE;
+    const res = await fetchWithAuth(
+      `/api/tedis/products?limit=${PAGE_SIZE}&offset=${offset}&search=${encodeURIComponent(
+        search
+      )}&sortKey=${sortKey}&sortOrder=${sortAsc ? "asc" : "desc"}`
+    );
     const data = await res.json();
-    setProducts(data);
+    setProducts(data.products);
+    setTotalProducts(data.total);
+    setLoadingTable(false);
   };
 
   const handleSync = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/tedis/sync/products", { method: "POST" });
+      const res = await fetchWithAuth("/api/tedis/sync/products", {
+        method: "POST",
+      });
       const { jobId } = await res.json();
-      console.log("jobId", jobId);
       if (!jobId) throw new Error("Failed to start sync job");
 
       const interval = setInterval(async () => {
-        const statusRes = await fetch(
+        const statusRes = await fetchWithAuth(
           `/api/tedis/sync/products/status?jobId=${jobId}`
         );
         const status = await statusRes.json();
-        console.log("status", jobId, " ", status);
         if (status.status === "success") {
           clearInterval(interval);
           toast.success(`Synced ${status.synced} products.`);
-          fetchProducts();
+          fetchProducts({ page });
           setLoading(false);
         } else if (status.status === "error") {
           clearInterval(interval);
@@ -68,22 +98,13 @@ export function ProductsTab() {
   };
 
   useEffect(() => {
-    fetchProducts();
-  }, []);
-
-  const filtered = products
-    .filter(
-      (p) =>
-        p.productCode.toLowerCase().includes(search.toLowerCase()) ||
-        (p.name?.toLowerCase().includes(search.toLowerCase()) ?? false)
-    )
-    .sort((a, b) => {
-      const valA = a[sortKey];
-      const valB = b[sortKey];
-      return sortAsc
-        ? String(valA).localeCompare(String(valB))
-        : String(valB).localeCompare(String(valA));
+    fetchProducts({
+      page,
+      search: debouncedSearch,
+      sortKey,
+      sortAsc,
     });
+  }, [page, debouncedSearch, sortKey, sortAsc]);
 
   const handleSort = (key: keyof Product) => {
     if (key === sortKey) setSortAsc(!sortAsc);
@@ -94,17 +115,34 @@ export function ProductsTab() {
   };
 
   return (
-    <>
-      <Card className="mb-6">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-medium">Products</h2>
-              <p className="text-sm text-muted-foreground">
-                Sync product data from VCRM into the local database.
-              </p>
-            </div>
-            <Button onClick={handleSync} disabled={loading}>
+    <Card className="relative pt-2">
+      <CardContent className="py-0 ">
+        {/* Sticky Toolbar inside the Card */}
+        <div className="sticky top-24 z-20 bg-background border-b p-6 flex flex-wrap items-center justify-between gap-4">
+          {/* Left: Title + Description */}
+          <div>
+            <h2 className="text-lg font-semibold">📦 Products</h2>
+            <p className="text-sm text-muted-foreground">
+              Manage and sync product data from VCRM into the local database.
+            </p>
+          </div>
+
+          {/* Right: Controls */}
+          <div className="flex flex-wrap items-center gap-4 w-full">
+            <Input
+              type="text"
+              placeholder="Search products..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(0);
+              }}
+              className="w-64"
+            />
+            <span className="text-xs text-muted-foreground whitespace-nowrap">
+              Showing {products.length} / {totalProducts} results
+            </span>
+            <Button onClick={handleSync} disabled={loading} className="ml-auto">
               {loading ? (
                 <Loader2 className="animate-spin h-4 w-4 mr-2" />
               ) : (
@@ -113,49 +151,38 @@ export function ProductsTab() {
               Sync Products
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-medium">🗂️ Synced Products</h2>
-            <Input
-              type="text"
-              placeholder="Filter by code or name"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-64"
-            />
-          </div>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead
-                    className="cursor-pointer"
-                    onClick={() => handleSort("productCode")}
-                  >
-                    Product Code{" "}
-                    {sortKey === "productCode" && (sortAsc ? "▲" : "▼")}
-                  </TableHead>
-                  <TableHead
-                    className="cursor-pointer"
-                    onClick={() => handleSort("name")}
-                  >
-                    Name {sortKey === "name" && (sortAsc ? "▲" : "▼")}
-                  </TableHead>
-                  <TableHead
-                    className="cursor-pointer"
-                    onClick={() => handleSort("updatedAt")}
-                  >
-                    Last Synced{" "}
-                    {sortKey === "updatedAt" && (sortAsc ? "▲" : "▼")}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((product) => (
+        <div className="overflow-x-auto min-h-[300px] relative">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead
+                  className="cursor-pointer"
+                  onClick={() => handleSort("productCode")}
+                >
+                  Product Code
+                  {sortKey === "productCode" && (sortAsc ? "▲" : "▼")}
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer"
+                  onClick={() => handleSort("name")}
+                >
+                  Name {sortKey === "name" && (sortAsc ? "▲" : "▼")}
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer"
+                  onClick={() => handleSort("updatedAt")}
+                >
+                  Last Synced {sortKey === "updatedAt" && (sortAsc ? "▲" : "▼")}
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loadingTable ? (
+                <TableSkeleton columns={3} rows={10} />
+              ) : (
+                products.map((product) => (
                   <TableRow key={product.id}>
                     <TableCell>{product.productCode}</TableCell>
                     <TableCell>{product.name}</TableCell>
@@ -163,12 +190,38 @@ export function ProductsTab() {
                       {new Date(product.updatedAt).toLocaleString()}
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-    </>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Pagination Controls */}
+        <div className="flex justify-end gap-4 mt-4">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page === 0}
+            onClick={() => {
+              setPage((p) => p - 1);
+              fetchProducts({ page: page - 1, search });
+            }}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={(page + 1) * PAGE_SIZE >= totalProducts}
+            onClick={() => {
+              setPage((p) => p + 1);
+              fetchProducts({ page: page + 1, search });
+            }}
+          >
+            Next
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

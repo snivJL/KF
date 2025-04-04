@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Home, Upload, History, LogOut, RefreshCw } from "lucide-react";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { isAccessTokenValid } from "@/lib/auth";
 
 const sidebarLinks = [
   { href: "/", label: "Home", icon: Home },
@@ -14,12 +16,17 @@ const sidebarLinks = [
   { label: "Sync Data", href: "/sync", icon: RefreshCw },
 ];
 
-const Sidebar = ({ token }: { token: string | null }) => {
+const Sidebar = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const pathname = usePathname();
 
   const handleAuth = () => {
     window.location.href = "/api/auth/login";
   };
+
+  useEffect(() => {
+    setIsAuthenticated(isAccessTokenValid());
+  }, []);
 
   return (
     <aside className="w-64 bg-[#171717] text-white flex flex-col p-4 space-y-2">
@@ -31,7 +38,7 @@ const Sidebar = ({ token }: { token: string | null }) => {
           height={32}
           className="rounded"
         />
-        <h2 className="text-xl font-bold">Invoice Portal</h2>
+        <h2 className="text-xl font-bold">KF Portal</h2>
       </div>
       {sidebarLinks.map(({ href, label, icon: Icon }) => (
         <Link
@@ -47,18 +54,10 @@ const Sidebar = ({ token }: { token: string | null }) => {
         </Link>
       ))}
       <div className="mt-auto pt-4 border-t border-white/20 space-y-2">
-        {/* <Button
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          variant="ghost"
-          className="w-full flex gap-2 text-white hover:bg-[#2f3348]"
-        >
-          <SunMoon className="w-5 h-5" />
-          Toggle Theme
-        </Button> */}
         <Button onClick={handleAuth} variant="secondary" className="w-full">
           Authenticate VCRM
         </Button>
-        {token ? (
+        {isAuthenticated ? (
           <p className="text-xs text-center">Authenticated</p>
         ) : (
           <p className="text-xs text-center">Not Authenticated</p>

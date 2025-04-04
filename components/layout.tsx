@@ -1,4 +1,3 @@
-import { getAccessToken } from "@/lib/vcrm";
 import Sidebar from "./sidebar";
 
 export default async function Layout({
@@ -6,11 +5,10 @@ export default async function Layout({
 }: {
   children: React.ReactNode;
 }) {
-  const token = await getAccessToken();
   return (
-    <div className="flex min-h-screen">
-      <Sidebar token={token} />
-      <main className="flex-1 bg-gray-50 dark:bg-[#1a1d2d] text-gray-900 dark:text-white p-8">
+    <div className="flex h-screen overflow-hidden">
+      <Sidebar />
+      <main className="flex-1 overflow-y-auto bg-background dark:bg-primary text-gray-900 dark:text-white px-8">
         {children}
       </main>
     </div>

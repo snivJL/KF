@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAccessToken } from "@/lib/vcrm";
+import { getAccessToken } from "@/lib/auth";
 import axios from "axios";
 import { format } from "date-fns";
 import type {

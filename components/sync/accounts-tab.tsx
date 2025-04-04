@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Button } from "../ui/button";
 import { Loader2, RefreshCw } from "lucide-react";
+import { fetchWithAuth } from "@/lib/auth";
 
 export type Account = {
   id: string;
@@ -34,7 +35,7 @@ export default function AccountsTab() {
   const [sortAsc, setSortAsc] = useState(false);
   const [loading, setLoading] = useState(false);
   const fetchAccounts = async () => {
-    const res = await fetch("/api/tedis/accounts");
+    const res = await fetchWithAuth("/api/tedis/accounts");
     const data = await res.json();
     setAccounts(data);
   };
@@ -45,7 +46,9 @@ export default function AccountsTab() {
   const handleSync = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/tedis/sync/accounts", { method: "POST" });
+      const res = await fetchWithAuth("/api/tedis/sync/accounts", {
+        method: "POST",
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Unknown error");
       toast.success(`Synced ${data.synced} accounts.`);

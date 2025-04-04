@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * 🌐 Environment-Aware OAuth Callback
+ * 🌐 OAuth Callback Handler
  *
- * On development:
- * - Uses client-side JavaScript (document.cookie) to store refresh_token for simplicity.
- *
- * On production:
- * - Stores refresh_token securely in HttpOnly cookies using `NextResponse.cookies.set`.
+ * - Exchanges code for access_token and refresh_token
+ * - Saves tokens and expiration timestamp to cookies
+ * - Handles both Development and Production environments
  */
 
 export async function GET(req: NextRequest) {
@@ -19,7 +17,7 @@ export async function GET(req: NextRequest) {
   }
 
   const tokenUrl = `${process.env.ACCOUNT_URL!}/token`;
-  const tempTokenParams = new URLSearchParams({
+  const tokenParams = new URLSearchParams({
     grant_type: "authorization_code",
     client_id: process.env.ZOHO_CLIENT_ID!,
     client_secret: process.env.ZOHO_CLIENT_SECRET!,
@@ -27,30 +25,6 @@ export async function GET(req: NextRequest) {
     code,
   });
 
-  const tempTokenRes = await fetch(tokenUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: tempTokenParams.toString(),
-  });
-
-  const tempTokenData = await tempTokenRes.json();
-  console.log("tempTokenData", tempTokenData);
-  if (
-    !tempTokenRes.ok ||
-    !tempTokenData.access_token ||
-    !tempTokenData.refresh_token
-  ) {
-    console.error("Temp Token fetch failed", tempTokenData);
-    return new Response("Error fetching temp token", { status: 500 });
-  }
-  const tokenParams = new URLSearchParams({
-    grant_type: "refresh_token",
-    client_id: process.env.ZOHO_CLIENT_ID!,
-    client_secret: process.env.ZOHO_CLIENT_SECRET!,
-    redirect_uri: process.env.ZOHO_REDIRECT_URI!,
-    refresh_token: tempTokenData.refresh_token,
-  });
-  console.log("INFO:", tokenUrl, tokenParams);
   const tokenRes = await fetch(tokenUrl, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -58,35 +32,69 @@ export async function GET(req: NextRequest) {
   });
 
   const tokenData = await tokenRes.json();
-  if (!tokenRes.ok || !tokenData.access_token) {
-    console.error("Token exchange failed", tokenData);
+  console.log("Zoho Token Response:", tokenData);
+
+  if (!tokenRes.ok || !tokenData.access_token || !tokenData.refresh_token) {
+    console.error("Token fetch failed", tokenData);
     return new Response("Error fetching token", { status: 500 });
   }
+
+  const { access_token, refresh_token, expires_in } = tokenData;
+  const expirationTimestamp = Date.now() + expires_in * 1000; // expires_in is in seconds
+
   const isProd = process.env.NODE_ENV === "production";
 
   if (isProd) {
     const response = NextResponse.redirect(`${req.nextUrl.origin}/`);
-    response.cookies.set("vcrm_access_token", tokenData.access_token, {
+
+    // Save access token (optional httpOnly) — typically you want it client-accessible if needed
+    response.cookies.set("vcrm_access_token", access_token, {
       path: "/",
       secure: true,
-      httpOnly: true,
       sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 30,
+      maxAge: expires_in,
+      httpOnly: false, // Client needs to send it via headers
     });
+
+    // Save access token expiration
+    response.cookies.set(
+      "vcrm_access_token_expires",
+      expirationTimestamp.toString(),
+      {
+        path: "/",
+        secure: true,
+        sameSite: "lax",
+        maxAge: expires_in,
+        httpOnly: false,
+      }
+    );
+
+    // Save refresh token (secure and httpOnly!)
+    response.cookies.set("vcrm_refresh_token", refresh_token, {
+      path: "/",
+      secure: true,
+      sameSite: "lax",
+      httpOnly: true,
+      maxAge: 60 * 60 * 24 * 30, // 30 days
+    });
+
     return response;
   } else {
+    // In development, use JS to manually set cookies (simpler local testing)
     const html = `
       <html>
         <body>
           <script>
-            document.cookie = "vcrm_access_token=${tokenData.access_token}; path=/; max-age=2592000; samesite=lax";
+            document.cookie = "vcrm_access_token=${access_token}; path=/; max-age=${expires_in}; samesite=lax";
+            document.cookie = "vcrm_access_token_expires=${expirationTimestamp}; path=/; max-age=${expires_in}; samesite=lax";
+            document.cookie = "vcrm_refresh_token=${refresh_token}; path=/; max-age=${
+      60 * 60 * 24 * 30
+    }; samesite=lax";
             window.location.href = "/";
           </script>
         </body>
       </html>
     `;
-    return new Response(html, {
-      headers: { "Content-Type": "text/html" },
-    });
+    return new Response(html, { headers: { "Content-Type": "text/html" } });
   }
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAccessToken } from "@/lib/vcrm";
+import { getAccessToken } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import axios from "axios";
 import AdmZip from "adm-zip";

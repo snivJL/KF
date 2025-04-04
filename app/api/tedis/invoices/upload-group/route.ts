@@ -1,6 +1,6 @@
 // /api/tedis/invoices/upload-group/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getAccessToken } from "@/lib/vcrm";
+import { getAccessToken } from "@/lib/auth";
 import { parseAxiosError } from "@/lib/errors";
 import axios from "axios";
 import { format } from "date-fns";

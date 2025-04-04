@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Loader2, RefreshCw } from "lucide-react";
+import { fetchWithAuth } from "@/lib/auth";
 
 type Employee = {
   id: string;
@@ -28,7 +29,7 @@ export function EmployeesTab() {
   const [loading, setLoading] = useState(false);
 
   const fetchEmployees = async () => {
-    const res = await fetch("/api/tedis/employees");
+    const res = await fetchWithAuth("/api/tedis/employees");
     const data = await res.json();
     setEmployees(data);
   };
@@ -36,7 +37,9 @@ export function EmployeesTab() {
   const handleSync = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/tedis/sync/employees", { method: "POST" });
+      const res = await fetchWithAuth("/api/tedis/sync/employees", {
+        method: "POST",
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Unknown error");
       toast.success(`✅ Synced ${data.synced} employees.`);

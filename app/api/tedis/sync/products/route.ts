@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAccessToken } from "@/lib/vcrm";
 import axios from "axios";
+import { SyncModule, SyncStatus } from "@prisma/client";
+import { getAccessTokenFromServer } from "@/lib/auth-server";
 
 export async function POST() {
   const job = await prisma.syncJob.create({
     data: {
-      module: "products",
-      status: "queued",
+      module: SyncModule.accounts,
+      status: SyncStatus.queued,
     },
   });
 
@@ -30,7 +31,7 @@ async function syncProductsInBackground(jobId: string) {
       await prisma.syncJob.update({
         where: { id: jobId },
         data: {
-          status: "success",
+          status: SyncStatus.success,
           synced,
         },
       });
@@ -39,7 +40,7 @@ async function syncProductsInBackground(jobId: string) {
       await prisma.syncJob.update({
         where: { id: jobId },
         data: {
-          status: "error",
+          status: SyncStatus.error,
           error: err.message ?? "Unknown error",
         },
       });
@@ -48,7 +49,7 @@ async function syncProductsInBackground(jobId: string) {
 }
 
 async function performProductSync(): Promise<number> {
-  const accessToken = await getAccessToken();
+  const accessToken = await getAccessTokenFromServer();
   const headers = { Authorization: `Bearer ${accessToken}` };
 
   const response = await axios.get(

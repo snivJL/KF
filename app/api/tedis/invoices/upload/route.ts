@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAccessToken } from "@/lib/auth";
+import { getAccessTokenFromServer } from "@/lib/auth-server";
 import axios from "axios";
 import { format } from "date-fns";
 import type {
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const accessToken = await getAccessToken();
+    const accessToken = await getAccessTokenFromServer();
     const headers = {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",

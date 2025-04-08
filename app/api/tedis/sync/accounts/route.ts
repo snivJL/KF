@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAccessToken } from "@/lib/auth";
+import { getAccessTokenFromServer } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
 import axios from "axios";
 import AdmZip from "adm-zip";
@@ -11,7 +11,7 @@ const MAX_ATTEMPTS = 20;
 
 export async function POST() {
   try {
-    const accessToken = await getAccessToken();
+    const accessToken = await getAccessTokenFromServer();
     const headers = {
       Authorization: `Zoho-oauthtoken ${accessToken}`,
       "Content-Type": "application/json",

@@ -1,6 +1,6 @@
 // /api/tedis/invoices/upload-group/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getAccessToken } from "@/lib/auth";
+import { getAccessTokenFromServer } from "@/lib/auth-server";
 import { parseAxiosError } from "@/lib/errors";
 import axios from "axios";
 import { format } from "date-fns";
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
       currentItemId,
     }: { group: EnrichedValidatedInvoice[]; currentItemId: number } =
       await req.json();
-    const accessToken = await getAccessToken();
+    const accessToken = await getAccessTokenFromServer();
 
     const first = group[0]!;
     const subject = `${format(new Date(first.invoiceDate), "ddMMyy")} ${

@@ -99,35 +99,54 @@ export async function POST() {
 
     console.log(`Parsed ${records.length} records.`);
 
+    const failedUpserts: { id: string; reason: string }[] = [];
+
     for (const row of records) {
       console.log("Upserting account:", row);
-      await prisma.account.upsert({
-        where: { id: row["Id"] },
-        update: {
-          code: row.Code,
-          name: row.Account_Name,
-          shippingStreet: row["Shipping_Street"],
-          shippingCity: row["Shipping_City"],
-          shippingCode: row["Shipping_Code"],
-          shippingCountry: row["Shipping_Country"],
-          shippingProvince: row["Shipping_State"],
-          updatedAt: new Date(),
-        },
-        create: {
+      try {
+        await prisma.account.upsert({
+          where: { id: row["Id"] },
+          update: {
+            code: row.Code,
+            name: row.Account_Name,
+            shippingStreet: row["Shipping_Street"],
+            shippingCity: row["Shipping_City"],
+            shippingCode: row["Shipping_Code"],
+            shippingCountry: row["Shipping_Country"],
+            shippingProvince: row["Shipping_State"],
+            updatedAt: new Date(),
+          },
+          create: {
+            id: row["Id"],
+            code: row.Code,
+            name: row.Account_Name,
+            shippingStreet: row["Shipping_Street"],
+            shippingCity: row["Shipping_City"],
+            shippingCode: row["Shipping_Code"],
+            shippingCountry: row["Shipping_Country"],
+            shippingProvince: row["Shipping_State"],
+            updatedAt: new Date(),
+          },
+        });
+      } catch (upsertError) {
+        console.error(`Failed to upsert account ID ${row["Id"]}:`, upsertError);
+        failedUpserts.push({
           id: row["Id"],
-          code: row.Code,
-          name: row.Account_Name,
-          shippingStreet: row["Shipping_Street"],
-          shippingCity: row["Shipping_City"],
-          shippingCode: row["Shipping_Code"],
-          shippingCountry: row["Shipping_Country"],
-          shippingProvince: row["Shipping_State"],
-          updatedAt: new Date(),
-        },
-      });
+          reason: (upsertError as Error)?.message ?? "Unknown error",
+        });
+      }
     }
 
-    return NextResponse.json({ synced: records.length });
+    console.log(
+      `Sync completed: ${records.length - failedUpserts.length} succeeded, ${
+        failedUpserts.length
+      } failed.`
+    );
+
+    return NextResponse.json({
+      synced: records.length - failedUpserts.length,
+      failed: failedUpserts,
+    });
   } catch (err) {
     if (axios.isAxiosError(err)) {
       console.error("Zoho API Error:");

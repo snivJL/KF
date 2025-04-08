@@ -35,7 +35,7 @@ export default function AccountsTab() {
   const [sortAsc, setSortAsc] = useState(false);
   const [loading, setLoading] = useState(false);
   const fetchAccounts = async () => {
-    const res = await fetchWithAuth("/api/tedis/accounts");
+    const res = await fetchWithAuth("/api/tedis/accounts?take=100");
     const data = await res.json();
     setAccounts(data);
   };

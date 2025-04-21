@@ -3,14 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  Home,
-  Upload,
-  History,
-  LogOut,
-  RefreshCw,
-  TowerControlIcon,
-} from "lucide-react";
+import { Home, Upload, History, LogOut, RefreshCw } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { isAccessTokenValid } from "@/lib/auth";

@@ -78,34 +78,3 @@ async function performProductSync(): Promise<number> {
 
   return products.length;
 }
-
-async function updateMeetingProductPicklistOptions(activeProducts: any[]) {
-  const accessToken = await getAccessTokenFromServer();
-  const headers = {
-    Authorization: `Bearer ${accessToken}`,
-    "Content-Type": "application/json",
-  };
-
-  // 1. Build the new picklist values
-  const picklistValues = activeProducts.map((p) => ({
-    display_value: `${p.Product_Code} - ${p.Product_Name}`,
-    actual_value: `${p.Product_Code} - ${p.Product_Name}`,
-  }));
-
-  // 2. Patch the Meetings field "Product(s)"
-  // First, fetch the field ID dynamically (optional), or hardcode if known
-  const fieldApiName = "Products"; // Assuming your Meetings field is named "Products"
-
-  await axios.put(
-    `${process.env.BASE_URL}/crm/v6/settings/fields?module=Meetings`,
-    {
-      fields: [
-        {
-          api_name: fieldApiName,
-          pick_list_values: picklistValues,
-        },
-      ],
-    },
-    { headers }
-  );
-}

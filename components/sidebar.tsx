@@ -21,7 +21,6 @@ const sidebarLinks = [
   { href: "/history", label: "History", icon: History },
   { href: "/logs", label: "Import Logs", icon: LogOut },
   { label: "Sync Data", href: "/sync", icon: RefreshCw },
-  { label: "Tools", href: "/tools", icon: TowerControlIcon },
 ];
 
 const Sidebar = () => {

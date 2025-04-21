@@ -25,9 +25,15 @@ export async function POST(req: NextRequest) {
     const payload = {
       Subject: subject,
       Invoice_Date: format(new Date(first.invoiceDate), "yyyy-MM-dd"),
+      Billing_Street: first.shippingStreet,
+      Billing_City: first.shippingCity,
+      Billing_Code: first.shippingCode,
+      Billing_Country: first.shippingCountry,
+      Billing_State: first.shippingProvince,
       Account_Name: { id: first.accountId },
       Invoiced_Items: group.map((item) => ({
         Product_Name: { id: item.productId },
+        Product_Code: item.productCode,
         Assigned_Employee: { id: item.employeeId },
         Quantity: item.quantity,
         Discount: item.discount,

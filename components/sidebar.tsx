@@ -3,7 +3,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Home, Upload, History, LogOut, RefreshCw } from "lucide-react";
+import {
+  Home,
+  Upload,
+  History,
+  LogOut,
+  RefreshCw,
+  TowerControlIcon,
+} from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { isAccessTokenValid } from "@/lib/auth";
@@ -14,6 +21,7 @@ const sidebarLinks = [
   { href: "/history", label: "History", icon: History },
   { href: "/logs", label: "Import Logs", icon: LogOut },
   { label: "Sync Data", href: "/sync", icon: RefreshCw },
+  { label: "Tools", href: "/tools", icon: TowerControlIcon },
 ];
 
 const Sidebar = () => {

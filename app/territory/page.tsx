@@ -1,8 +1,6 @@
 "use client";
 
-import { useState, type ChangeEvent, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Card,
   CardHeader,
@@ -10,80 +8,74 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-
-interface Result {
-  id: string;
-  success: boolean;
-  message?: string;
-}
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import useBatchProcessor from "@/hooks/use-batch-processor";
+import { parseIdsFromFile } from "@/lib/helpers";
+import { Loader2 } from "lucide-react";
+import { useState, type ChangeEvent } from "react";
 
 export default function TerritoriesTriggerPage() {
-  const [prescriberFile, setPrescriberFile] = useState<File | null>(null);
-  const [customerFile, setCustomerFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [prescriberResults, setPrescriberResults] = useState<Result[]>([]);
-  const [customerResults, setCustomerResults] = useState<Result[]>([]);
+  const [prescriberIds, setPrescriberIds] = useState<string[]>([]);
+  const [customerIds, setCustomerIds] = useState<string[]>([]);
   const [error, setError] = useState<string>();
 
-  function handleFileChange(
+  // Define process functions
+  const processPrescriber = async (code: string) => {
+    const form = new FormData();
+    form.append("code", code);
+    const res = await fetch("/api/tedis/territories/prescribers", {
+      method: "POST",
+      body: form,
+    });
+    const data = await res.json();
+    return { id: code, success: res.ok, message: data.error || "" };
+  };
+
+  const processCustomer = async (id: string) => {
+    const form = new FormData();
+    form.append("id", id);
+    const res = await fetch("/api/tedis/territories/customers", {
+      method: "POST",
+      body: form,
+    });
+    const data = await res.json();
+    return { id, success: res.ok, message: data.error || "" };
+  };
+
+  // Initialize batch processors
+  const {
+    progress: prescriberProgress,
+    results: prescriberResults,
+    running: prescriberRunning,
+    start: startPrescribers,
+  } = useBatchProcessor(prescriberIds, processPrescriber);
+
+  const {
+    progress: customerProgress,
+    results: customerResults,
+    running: customerRunning,
+    start: startCustomers,
+  } = useBatchProcessor(customerIds, processCustomer);
+  console.log(customerRunning, customerProgress, customerResults);
+  // Handlers
+  const handleFile = async (
     e: ChangeEvent<HTMLInputElement>,
     type: "prescriber" | "customer"
-  ) {
+  ) => {
+    setError(undefined);
     const file = e.target.files?.[0] || null;
-    setError(undefined);
-    if (type === "prescriber") {
-      setPrescriberFile(file);
-      setPrescriberResults([]);
-    } else {
-      setCustomerFile(file);
-      setCustomerResults([]);
-    }
-  }
-
-  async function handleSubmit(e: FormEvent, type: "prescriber" | "customer") {
-    e.preventDefault();
-    const file = type === "prescriber" ? prescriberFile : customerFile;
-    if (!file) {
-      setError("Please select an Excel file to upload.");
-      return;
-    }
-
-    setLoading(true);
-    setError(undefined);
-    if (type === "prescriber") setPrescriberResults([]);
-    else setCustomerResults([]);
-
+    if (!file) return;
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const endpoint =
-        type === "prescriber"
-          ? "/api/tedis/territories/prescribers"
-          : "/api/tedis/territories/customers";
-
-      const res = await fetch(endpoint, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const body = await res.json();
-        throw new Error(body.error || "Upload failed");
-      }
-
-      const data: { results: Result[] } = await res.json();
-      console.log(data.results);
-      if (type === "prescriber") setPrescriberResults(data.results);
-      else setCustomerResults(data.results);
-    } catch (err: unknown) {
-      setError(
-        err instanceof Error ? err.message : "An unexpected error occurred."
-      );
-    } finally {
-      setLoading(false);
+      const ids = await parseIdsFromFile(file);
+      console.log(ids);
+      if (type === "prescriber") setPrescriberIds(ids);
+      else setCustomerIds(ids);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to parse Excel file.");
     }
-  }
+  };
 
   return (
     <div className="container mx-auto p-6">
@@ -91,8 +83,8 @@ export default function TerritoriesTriggerPage() {
         <CardHeader>
           <CardTitle>Territories Workflow Triggers</CardTitle>
           <CardDescription>
-            Upload Excel files to trigger workflows for Prescribers or Customers
-            in Zoho CRM.
+            Select a tab, upload an Excel, and trigger workflows row-by-row with
+            live progress.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -103,30 +95,59 @@ export default function TerritoriesTriggerPage() {
             </TabsList>
 
             <TabsContent value="prescriber">
-              <form
-                onSubmit={(e) => handleSubmit(e, "prescriber")}
-                className="space-y-4"
-              >
-                <Input
-                  type="file"
-                  accept=".xlsx,.xls"
-                  onChange={(e) => handleFileChange(e, "prescriber")}
-                  aria-label="Prescribers Excel file"
-                />
-                <Button disabled={loading} className="w-full">
-                  {loading ? "Processing…" : "Upload & Trigger"}
+              <Input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={(e) => handleFile(e, "prescriber")}
+                aria-label="Upload prescriber codes"
+                className="mb-4"
+              />
+              {prescriberIds.length > 0 && (
+                <Button
+                  onClick={startPrescribers}
+                  disabled={prescriberRunning}
+                  className="mb-4"
+                >
+                  {prescriberRunning ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Processing...
+                    </>
+                  ) : (
+                    "Start Prescribers"
+                  )}
                 </Button>
-              </form>
-
-              {error && <p className="mt-2 text-destructive">{error}</p>}
-
+              )}
+              {prescriberRunning && (
+                <div>
+                  <div className="text-sm mb-1">
+                    {prescriberProgress.current} / {prescriberProgress.total}
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-3 mb-2">
+                    <div
+                      className="bg-primary h-3 rounded-full transition-all"
+                      style={{
+                        width: `${
+                          (prescriberProgress.current /
+                            prescriberProgress.total) *
+                          100
+                        }%`,
+                      }}
+                    />
+                  </div>
+                  <div className="text-xs">
+                    ✅ {prescriberProgress.successes} | ❌{" "}
+                    {prescriberProgress.failures}
+                  </div>
+                </div>
+              )}
               {prescriberResults.length > 0 && (
-                <table className="w-full mt-4 text-sm table-fixed">
+                <table className="w-full mt-4 text-sm">
                   <thead>
                     <tr>
-                      <th className="px-2 py-1 text-left">Code</th>
-                      <th className="px-2 py-1 text-left">Status</th>
-                      <th className="px-2 py-1 text-left">Message</th>
+                      <th>Code</th>
+                      <th>Status</th>
+                      <th>Msg</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -134,7 +155,7 @@ export default function TerritoriesTriggerPage() {
                       <tr key={r.id} className={r.success ? "" : "bg-red-50"}>
                         <td className="px-2 py-1">{r.id}</td>
                         <td className="px-2 py-1">{r.success ? "✅" : "❌"}</td>
-                        <td className="px-2 py-1">{r.message || ""}</td>
+                        <td className="px-2 py-1">{r.message}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -143,30 +164,58 @@ export default function TerritoriesTriggerPage() {
             </TabsContent>
 
             <TabsContent value="customer">
-              <form
-                onSubmit={(e) => handleSubmit(e, "customer")}
-                className="space-y-4"
-              >
-                <Input
-                  type="file"
-                  accept=".xlsx,.xls"
-                  onChange={(e) => handleFileChange(e, "customer")}
-                  aria-label="Customers Excel file"
-                />
-                <Button disabled={loading} className="w-full">
-                  {loading ? "Processing…" : "Upload & Trigger"}
+              <Input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={(e) => handleFile(e, "customer")}
+                aria-label="Upload customer IDs"
+                className="mb-4"
+              />
+              {customerIds.length > 0 && (
+                <Button
+                  onClick={startCustomers}
+                  disabled={customerRunning}
+                  className="mb-4"
+                >
+                  {customerRunning ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Processing...
+                    </>
+                  ) : (
+                    "Start Customers"
+                  )}
                 </Button>
-              </form>
-
-              {error && <p className="mt-2 text-destructive">{error}</p>}
-
+              )}
+              {customerRunning && (
+                <div>
+                  <div className="text-sm mb-1">
+                    {customerProgress.current} / {customerProgress.total}
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-3 mb-2">
+                    <div
+                      className="bg-primary h-3 rounded-full transition-all"
+                      style={{
+                        width: `${
+                          (customerProgress.current / customerProgress.total) *
+                          100
+                        }%`,
+                      }}
+                    />
+                  </div>
+                  <div className="text-xs">
+                    ✅ {customerProgress.successes} | ❌{" "}
+                    {customerProgress.failures}
+                  </div>
+                </div>
+              )}
               {customerResults.length > 0 && (
-                <table className="w-full mt-4 text-sm table-fixed">
+                <table className="w-full mt-4 text-sm">
                   <thead>
                     <tr>
-                      <th className="px-2 py-1 text-left">Customer ID</th>
-                      <th className="px-2 py-1 text-left">Status</th>
-                      <th className="px-2 py-1 text-left">Message</th>
+                      <th>Code</th>
+                      <th>Status</th>
+                      <th>Msg</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -174,7 +223,7 @@ export default function TerritoriesTriggerPage() {
                       <tr key={r.id} className={r.success ? "" : "bg-red-50"}>
                         <td className="px-2 py-1">{r.id}</td>
                         <td className="px-2 py-1">{r.success ? "✅" : "❌"}</td>
-                        <td className="px-2 py-1">{r.message || ""}</td>
+                        <td className="px-2 py-1">{r.message}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -184,6 +233,7 @@ export default function TerritoriesTriggerPage() {
           </Tabs>
         </CardContent>
       </Card>
+      {error && <p className="mt-4 text-destructive text-center">{error}</p>}
     </div>
   );
 }

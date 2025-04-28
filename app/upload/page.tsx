@@ -85,9 +85,6 @@ export default function UploadPage() {
   };
 
   const handleUpload = async () => {
-    const accessToken = getCookieValue("vcrm_access_token");
-    if (!accessToken) return toast.error("Missing VCRM token.");
-
     const groups = groupConsecutively(validRows);
     const startingId = await getCurrentCounter();
 

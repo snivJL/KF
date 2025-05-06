@@ -3,14 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  Home,
-  Upload,
-  History,
-  LogOut,
-  RefreshCw,
-  ContactIcon,
-} from "lucide-react";
+import { Home, Upload, RefreshCw, ContactIcon, PillIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { isAccessTokenValid } from "@/lib/auth";
@@ -18,10 +11,20 @@ import { isAccessTokenValid } from "@/lib/auth";
 const sidebarLinks = [
   { href: "/", label: "Home", icon: Home },
   { href: "/upload", label: "Upload", icon: Upload },
-  { href: "/history", label: "History", icon: History },
-  { href: "/logs", label: "Import Logs", icon: LogOut },
+  // { href: "/history", label: "History", icon: History },
+  // { href: "/logs", label: "Import Logs", icon: LogOut },
   { label: "Sync Data", href: "/sync", icon: RefreshCw },
   { label: "Territories", href: "/territory", icon: ContactIcon },
+  {
+    label: "Contact - Employees",
+    href: "/contacts-employees",
+    icon: ContactIcon,
+  },
+  {
+    label: "Accounts - Employees",
+    href: "/accounts-employees",
+    icon: PillIcon,
+  },
 ];
 
 const Sidebar = () => {

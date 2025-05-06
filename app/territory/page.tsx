@@ -18,18 +18,19 @@ import { useState, type ChangeEvent } from "react";
 export default function TerritoriesTriggerPage() {
   const [prescriberIds, setPrescriberIds] = useState<string[]>([]);
   const [customerIds, setCustomerIds] = useState<string[]>([]);
+  const [type, setType] = useState<"prescriber" | "customer">("prescriber");
   const [error, setError] = useState<string>();
 
   // Define process functions
-  const processPrescriber = async (code: string) => {
+  const processPrescriber = async (id: string) => {
     const form = new FormData();
-    form.append("code", code);
+    form.append("id", id);
     const res = await fetch("/api/tedis/territories/prescribers", {
       method: "POST",
       body: form,
     });
     const data = await res.json();
-    return { id: code, success: res.ok, message: data.error || "" };
+    return { id, success: res.ok, message: data.error || "" };
   };
 
   const processCustomer = async (id: string) => {
@@ -50,25 +51,22 @@ export default function TerritoriesTriggerPage() {
     running: prescriberRunning,
     start: startPrescribers,
   } = useBatchProcessor(prescriberIds, processPrescriber);
-
+  console.log("Prescriber IDs", prescriberIds);
+  console.log("Customer IDs", customerIds);
   const {
     progress: customerProgress,
     results: customerResults,
     running: customerRunning,
     start: startCustomers,
   } = useBatchProcessor(customerIds, processCustomer);
-  console.log(customerRunning, customerProgress, customerResults);
+  console.log(type);
   // Handlers
-  const handleFile = async (
-    e: ChangeEvent<HTMLInputElement>,
-    type: "prescriber" | "customer"
-  ) => {
+  const handleFile = async (e: ChangeEvent<HTMLInputElement>) => {
     setError(undefined);
     const file = e.target.files?.[0] || null;
     if (!file) return;
     try {
       const ids = await parseIdsFromFile(file);
-      console.log(ids);
       if (type === "prescriber") setPrescriberIds(ids);
       else setCustomerIds(ids);
     } catch (err) {
@@ -90,15 +88,22 @@ export default function TerritoriesTriggerPage() {
         <CardContent>
           <Tabs defaultValue="prescriber">
             <TabsList>
-              <TabsTrigger value="prescriber">Prescribers</TabsTrigger>
-              <TabsTrigger value="customer">Customers</TabsTrigger>
+              <TabsTrigger
+                value="prescriber"
+                onClick={() => setType("prescriber")}
+              >
+                Prescribers
+              </TabsTrigger>
+              <TabsTrigger value="customer" onClick={() => setType("customer")}>
+                Customers
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="prescriber">
               <Input
                 type="file"
                 accept=".xlsx,.xls"
-                onChange={(e) => handleFile(e, "prescriber")}
+                onChange={(e) => handleFile(e)}
                 aria-label="Upload prescriber codes"
                 className="mb-4"
               />
@@ -167,7 +172,7 @@ export default function TerritoriesTriggerPage() {
               <Input
                 type="file"
                 accept=".xlsx,.xls"
-                onChange={(e) => handleFile(e, "customer")}
+                onChange={(e) => handleFile(e)}
                 aria-label="Upload customer IDs"
                 className="mb-4"
               />

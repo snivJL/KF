@@ -13,10 +13,7 @@ type RowResult = { id: string; success: boolean; message?: string };
 
 type ProcessFn<T> = (row: T) => Promise<RowResult>;
 
-function useBatchProcessor<T extends string | { id: string }>(
-  rows: T[],
-  processFn: ProcessFn<T>
-) {
+function useBatchProcessor<T>(rows: T[], processFn: ProcessFn<T>) {
   const [progress, setProgress] = useState<Progress>({
     total: rows.length,
     current: 0,
@@ -43,9 +40,10 @@ function useBatchProcessor<T extends string | { id: string }>(
         else failures++;
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Unknown error";
-        const id = typeof row === "string" ? row : row?.id || "No ID";
-        const result: RowResult = { id, success: false, message };
-        setResults((prev) => [...prev, result]);
+        console.error(row, message);
+        // const id = typeof row === "string" ? row : row?.id || "No ID";
+        // const result: RowResult = { id, success: false, message };
+        // setResults((prev) => [...prev, result]);
         failures++;
       } finally {
         setProgress({

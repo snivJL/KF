@@ -51,8 +51,7 @@ export default function TerritoriesTriggerPage() {
     running: prescriberRunning,
     start: startPrescribers,
   } = useBatchProcessor(prescriberIds, processPrescriber);
-  console.log("Prescriber IDs", prescriberIds);
-  console.log("Customer IDs", customerIds);
+
   const {
     progress: customerProgress,
     results: customerResults,

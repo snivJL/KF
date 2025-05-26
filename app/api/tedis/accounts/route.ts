@@ -24,21 +24,8 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const contentType = req.headers.get("content-type") || "";
-    let data;
-
-    // Support form-url-encoded and JSON
-    if (contentType.includes("application/json")) {
-      data = await req.json();
-    } else if (contentType.includes("application/x-www-form-urlencoded")) {
-      const formData = await req.text();
-      data = Object.fromEntries(new URLSearchParams(formData));
-    } else {
-      return NextResponse.json(
-        { error: "Unsupported content type" },
-        { status: 400 }
-      );
-    }
+    const formBody = await req.text();
+    const data = Object.fromEntries(new URLSearchParams(formBody));
 
     const {
       id,
@@ -52,7 +39,7 @@ export async function POST(req: Request) {
       longitude,
     } = data;
 
-    if (!id || !name) {
+    if (!id || !name || !code) {
       return NextResponse.json(
         { error: "Missing required fields: id and name" },
         { status: 400 }

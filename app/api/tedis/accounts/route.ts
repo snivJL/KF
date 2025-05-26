@@ -21,3 +21,77 @@ export async function GET(req: Request) {
     );
   }
 }
+
+export async function POST(req: Request) {
+  try {
+    const contentType = req.headers.get("content-type") || "";
+    let data;
+
+    // Support form-url-encoded and JSON
+    if (contentType.includes("application/json")) {
+      data = await req.json();
+    } else if (contentType.includes("application/x-www-form-urlencoded")) {
+      const formData = await req.text();
+      data = Object.fromEntries(new URLSearchParams(formData));
+    } else {
+      return NextResponse.json(
+        { error: "Unsupported content type" },
+        { status: 400 }
+      );
+    }
+
+    const {
+      id,
+      name,
+      code,
+      street,
+      province,
+      city,
+      country,
+      latitude,
+      longitude,
+    } = data;
+
+    if (!id || !name) {
+      return NextResponse.json(
+        { error: "Missing required fields: id and name" },
+        { status: 400 }
+      );
+    }
+
+    await prisma.account.upsert({
+      where: { id },
+      update: {
+        name,
+        code,
+        shippingStreet: street,
+        shippingProvince: province,
+        shippingCity: city,
+        shippingCountry: country,
+        latitude: latitude ? parseFloat(latitude) : null,
+        longitude: longitude ? parseFloat(longitude) : null,
+        updatedAt: new Date(),
+      },
+      create: {
+        id,
+        name,
+        code,
+        shippingStreet: street,
+        shippingProvince: province,
+        shippingCity: city,
+        shippingCountry: country,
+        latitude: latitude ? parseFloat(latitude) : null,
+        longitude: longitude ? parseFloat(longitude) : null,
+        updatedAt: new Date(),
+      },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Webhook account sync error:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}

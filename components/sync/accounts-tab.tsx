@@ -25,6 +25,10 @@ export type Account = {
   shippingProvince: string;
   shippingCode: string;
   shippingCountry: string;
+  latitude: number | null;
+  longitude: number | null;
+  geocodeAttempts: number;
+  lastGeocodeError: string | null;
   updatedAt: string;
 };
 
@@ -152,6 +156,12 @@ export default function AccountsTab() {
                     Country{" "}
                     {sortKey === "shippingCountry" && (sortAsc ? "▲" : "▼")}
                   </TableHead>
+                  <TableHead onClick={() => handleSort("latitude")}>
+                    Latitude {sortKey === "latitude" && (sortAsc ? "▲" : "▼")}
+                  </TableHead>
+                  <TableHead onClick={() => handleSort("longitude")}>
+                    Longitude {sortKey === "longitude" && (sortAsc ? "▲" : "▼")}
+                  </TableHead>
                   <TableHead onClick={() => handleSort("updatedAt")}>
                     Last Synced{" "}
                     {sortKey === "updatedAt" && (sortAsc ? "▲" : "▼")}
@@ -168,6 +178,22 @@ export default function AccountsTab() {
                     <TableCell>{acc.shippingProvince}</TableCell>
                     <TableCell>{acc.shippingCode}</TableCell>
                     <TableCell>{acc.shippingCountry}</TableCell>
+                    <TableCell>
+                      {acc.latitude !== null ? acc.latitude.toFixed(6) : "N/A"}
+                    </TableCell>
+                    <TableCell>
+                      {acc.longitude !== null
+                        ? acc.longitude.toFixed(6)
+                        : "N/A"}
+                    </TableCell>
+                    <TableCell>{acc.geocodeAttempts} </TableCell>
+                    <TableCell>
+                      {acc.lastGeocodeError && (
+                        <span className="text-red-500">
+                          ({acc.lastGeocodeError})
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {new Date(acc.updatedAt).toLocaleString()}
                     </TableCell>

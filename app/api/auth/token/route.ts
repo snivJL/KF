@@ -8,7 +8,6 @@ export async function GET(request:NextRequest) {
 
   console.log(
     "TOKEN API received refresh token:",
-    request.cookies.get("vcrm_refresh_token"),
     refreshToken
   );
 

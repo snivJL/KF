@@ -8,30 +8,33 @@ datasource db {
 }
 
 model Account {
-  id               String    @id
-  code             String    @unique
-  name             String?
-  updatedAt        DateTime  @updatedAt
-  shippingCity     String?
-  shippingCode     String?
-  shippingCountry  String?
-  shippingProvince String?
-  shippingStreet   String?
-  trigger          Boolean   @default(false)
-  latitude         Float?
-  longitude        Float?
-  geocodeAttempts  Int       @default(0)
-  lastGeocodeError String?
-  lastGeocodeAt    DateTime?
+  id                String    @id
+  code              String    @unique
+  name              String?
+  updatedAt         DateTime  @updatedAt
+  shippingCity      String?
+  shippingCode      String?
+  shippingCountry   String?
+  shippingProvince  String?
+  shippingStreet    String?
+  trigger           Boolean   @default(false)
+  geocodeAttempts   Int       @default(0)
+  lastGeocodeAt     DateTime?
+  lastGeocodeError  String?
+  latitude          Float?
+  longitude         Float?
+  geocodeConfidence Float?
+  geocodePrecision  String?
+  geocodeRadius     Float?
 }
 
 model Contact {
   id        String   @id
   code      String   @unique
+  updatedAt DateTime @updatedAt
   firstName String?
   lastName  String?
   trigger   Boolean  @default(false)
-  updatedAt DateTime @updatedAt
 }
 
 model Product {
@@ -53,6 +56,16 @@ model InvoiceItemCounter {
   lastId String
 }
 
+model SyncJob {
+  id        String     @id @default(uuid())
+  module    SyncModule
+  status    SyncStatus
+  synced    Int?
+  error     String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
 enum SyncModule {
   products
   accounts
@@ -65,14 +78,4 @@ enum SyncStatus {
   processing
   success
   error
-}
-
-model SyncJob {
-  id        String     @id @default(uuid())
-  module    SyncModule
-  status    SyncStatus
-  synced    Int?
-  error     String?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
 }

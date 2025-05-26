@@ -29,9 +29,11 @@ export type Account = {
   longitude: number | null;
   geocodeAttempts: number;
   lastGeocodeError: string | null;
+  geocodeConfidence: number | null;
+  geocodePrecision: string | null;
+  geocodeRadius: number | null;
   updatedAt: string;
 };
-
 export default function AccountsTab() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [search, setSearch] = useState("");
@@ -162,6 +164,26 @@ export default function AccountsTab() {
                   <TableHead onClick={() => handleSort("longitude")}>
                     Longitude {sortKey === "longitude" && (sortAsc ? "▲" : "▼")}
                   </TableHead>
+                  <TableHead onClick={() => handleSort("geocodeAttempts")}>
+                    Geocode Attempts{" "}
+                    {sortKey === "geocodeAttempts" && (sortAsc ? "▲" : "▼")}
+                  </TableHead>
+                  <TableHead onClick={() => handleSort("lastGeocodeError")}>
+                    Last Error{" "}
+                    {sortKey === "lastGeocodeError" && (sortAsc ? "▲" : "▼")}
+                  </TableHead>
+                  <TableHead onClick={() => handleSort("geocodeConfidence")}>
+                    Accuracy{" "}
+                    {sortKey === "geocodeConfidence" && (sortAsc ? "▲" : "▼")}
+                  </TableHead>
+                  <TableHead onClick={() => handleSort("geocodePrecision")}>
+                    Precision{" "}
+                    {sortKey === "geocodePrecision" && (sortAsc ? "▲" : "▼")}
+                  </TableHead>
+                  <TableHead onClick={() => handleSort("geocodeRadius")}>
+                    Radius (m){" "}
+                    {sortKey === "geocodeRadius" && (sortAsc ? "▲" : "▼")}
+                  </TableHead>
                   <TableHead onClick={() => handleSort("updatedAt")}>
                     Last Synced{" "}
                     {sortKey === "updatedAt" && (sortAsc ? "▲" : "▼")}
@@ -193,6 +215,17 @@ export default function AccountsTab() {
                           ({acc.lastGeocodeError})
                         </span>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      {acc.geocodeConfidence !== null
+                        ? `${(acc.geocodeConfidence * 100).toFixed(0)}%`
+                        : "N/A"}
+                    </TableCell>
+                    <TableCell>{acc.geocodePrecision || "N/A"}</TableCell>
+                    <TableCell>
+                      {acc.geocodeRadius !== null
+                        ? `${acc.geocodeRadius} m`
+                        : "N/A"}
                     </TableCell>
                     <TableCell>
                       {new Date(acc.updatedAt).toLocaleString()}

@@ -6,132 +6,34 @@ import axios from "axios";
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY!;
 const BASE_URL = process.env.BASE_URL!;
 
-interface GeocodeResult {
-  lat: number;
-  lng: number;
-}
-
-interface GoogleGeocodeResponse {
-  status: string;
-  results: { geometry: { location: GeocodeResult } }[];
-}
+type LatLng = { lat: number; lng: number };
 
 const geocodeClient = axios.create({
   baseURL: "https://maps.googleapis.com/maps/api/geocode",
 });
 
-async function geocodeAddress(address: string): Promise<GeocodeResult> {
-  try {
-    const { data } = await geocodeClient.get<GoogleGeocodeResponse>("/json", {
-      params: { address, key: GOOGLE_API_KEY },
-    });
-    console.log(data.results.map((r) => r.geometry.location));
-    if (data.status !== "OK" || !data.results.length) {
-      throw new Error(`Geocode status ${data.status}`);
-    }
-    return data.results[0]!.geometry.location;
-  } catch (err) {
-    if (axios.isAxiosError(err)) {
-      throw new Error(`Axios error: ${err.response?.status} ${err.message}`);
-    }
-    throw err;
-  }
+type GeocodeResult = {
+  geometry: {
+    location: LatLng;
+    location_type: string;
+    bounds?: {
+      northeast: LatLng;
+      southwest: LatLng;
+    };
+  };
+  types: string[];
+  address_components: { long_name: string; types: string[] }[];
+};
+
+interface GoogleGeocodeResponse {
+  status: string;
+  results: GeocodeResult[];
 }
-
-// export async function POST() {
-//   try {
-//     const accounts = await prisma.account.findMany({
-//       take: 14643,
-//     });
-
-//     const accessToken = await getAccessTokenFromServer();
-//     const updatedAccounts: GeoResult[] = [];
-//     const failedAccounts: FailedResult[] = [];
-
-//     for (const acc of accounts) {
-//       const fullAddress = `${acc.shippingStreet ?? ""}, ${
-//         acc.shippingCity ?? ""
-//       }, ${acc.shippingProvince ?? ""}, ${acc.shippingCountry ?? ""}`;
-//       console.log("Searching concatenated address:", fullAddress);
-
-//       try {
-//         const encoded = encodeURIComponent(fullAddress);
-//         const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encoded}&key=${GOOGLE_API_KEY}`;
-//         const geoRes = await fetch(url);
-//         const geoData = await geoRes.json();
-
-//         console.log("Geocoding for:", acc.name);
-//         console.log(geoData);
-
-//         const location = geoData.results?.[0]?.geometry?.location;
-//         if (geoData.status === "OK" && location) {
-//           const { lat, lng } = location;
-
-//           const crmRes = await fetch(`${BASE_URL}/crm/v6/Accounts/${acc.id}`, {
-//             method: "PUT",
-//             headers: {
-//               Authorization: `Bearer ${accessToken}`,
-//               "Content-Type": "application/json",
-//             },
-//             body: JSON.stringify({
-//               data: [
-//                 {
-//                   Latitude__C: lat,
-//                   Longitude__C: lng,
-//                 },
-//               ],
-//             }),
-//           });
-
-//           const crmResponse = await crmRes.json();
-//           updatedAccounts.push({ id: acc.id, latitude: lat, longitude: lng });
-
-//           // Optional: update in your own database
-//           // await prisma.account.update({
-//           //   where: { id: acc.id },
-//           //   data: { latitude: lat, longitude: lng },
-//           // });
-//         } else {
-//           failedAccounts.push({
-//             id: acc.id,
-//             address: fullAddress,
-//             reason: geoData.status ?? "Location not found",
-//           });
-//         }
-//       } catch (geoError: unknown) {
-//         failedAccounts.push({
-//           id: acc.id,
-//           address: fullAddress,
-//           reason:
-//             geoError instanceof Error
-//               ? geoError.message
-//               : "Unknown geocoding error",
-//         });
-//         continue; // continue with next account
-//       }
-//     }
-
-//     return NextResponse.json({
-//       message: "Geocoding completed",
-//       updatedCount: updatedAccounts.length,
-//       updatedAccounts,
-//       failedCount: failedAccounts.length,
-//       failedAccounts,
-//     });
-//   } catch (error) {
-//     console.error("Batch geocoding failed:", error);
-//     return NextResponse.json(
-//       { error: "Internal server error" },
-//       { status: 500 }
-//     );
-//   }
-// }
 
 export async function POST() {
   try {
-    // only grab those you haven’t successfully geocoded yet
     const accounts = await prisma.account.findMany({
-      where: { latitude: null },
+      where: { latitude: null, longitude: null },
       orderBy: { code: "desc" },
     });
 
@@ -148,20 +50,41 @@ export async function POST() {
         .join(", ");
 
       try {
-        const { lat, lng } = await geocodeAddress(fullAddress);
-        console.log("updating crm with:", lat, lng);
-        // push to Zoho CRM
+        const { result, location } = await geocodeAddress(fullAddress);
+        const {
+          confidenceScore,
+          isAccurate,
+          description,
+          maxErrorRadiusMeters,
+        } = evaluateGeocodeAccuracy(result);
+
+        console.log(
+          `[${acc.code}] Accuracy: ${confidenceScore} (${description})`
+        );
+
+        const lat = location.lat;
+        const lng = location.lng;
+        if (!isAccurate) {
+          console.warn(
+            `Geocode for ${acc.name} (${acc.id}) is not accurate enough: ${description}`
+          );
+        }
+        // Push to CRM
         await axios.put(
           `${BASE_URL}/crm/v6/Accounts/${acc.id}`,
           {
             data: [
-              { Latitude__C: lat.toFixed(9), Longitude__C: lng.toFixed(9) },
+              {
+                Latitude__C: lat.toFixed(9),
+                Longitude__C: lng.toFixed(9),
+                Confidence_Score__C: confidenceScore,
+              },
             ],
           },
           { headers: { Authorization: `Bearer ${accessToken}` } }
         );
-        console.log("CRM updated with:", lat, lng);
-        // record success
+
+        // Update DB
         await prisma.account.update({
           where: { id: acc.id },
           data: {
@@ -170,11 +93,12 @@ export async function POST() {
             geocodeAttempts: { increment: 1 },
             lastGeocodeError: null,
             lastGeocodeAt: new Date(),
+            geocodeConfidence: confidenceScore,
+            geocodePrecision: description,
+            geocodeRadius: maxErrorRadiusMeters,
           },
         });
       } catch (e) {
-        // record failure, increment attempt
-        console.error(e);
         console.error(
           `Failed to geocode ${acc.name} (${acc.id}): ${
             e instanceof Error ? e.message : e
@@ -199,4 +123,88 @@ export async function POST() {
       { status: 500 }
     );
   }
+}
+
+function haversine(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371000; // meters
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function evaluateGeocodeAccuracy(result: GeocodeResult) {
+  const { location_type, bounds } = result.geometry;
+
+  let score = 0;
+  let description = "";
+  let maxErrorRadius = null;
+
+  switch (location_type) {
+    case "ROOFTOP":
+      score += 1;
+      description = "Exact address";
+      break;
+    case "RANGE_INTERPOLATED":
+      score += 0.7;
+      description = "Interpolated between addresses";
+      break;
+    case "GEOMETRIC_CENTER":
+      score += 0.5;
+      description = "Center of a region";
+      break;
+    case "APPROXIMATE":
+    default:
+      score += 0.3;
+      description = "Approximate location (e.g., city, district)";
+  }
+
+  const matchTypes = result.types;
+  if (matchTypes.includes("street_address") || matchTypes.includes("premise")) {
+    score += 0.3;
+  } else if (
+    matchTypes.includes("locality") ||
+    matchTypes.includes("neighborhood")
+  ) {
+    score += 0.1;
+  }
+
+  score = Math.min(1, score);
+
+  if (bounds) {
+    const { northeast, southwest } = bounds;
+    maxErrorRadius =
+      haversine(northeast.lat, northeast.lng, southwest.lat, southwest.lng) / 2;
+  }
+
+  return {
+    confidenceScore: parseFloat(score.toFixed(2)),
+    isAccurate: score >= 0.7,
+    description,
+    maxErrorRadiusMeters: maxErrorRadius ? Math.round(maxErrorRadius) : null,
+  };
+}
+
+async function geocodeAddress(
+  address: string
+): Promise<{ result: GeocodeResult; location: LatLng }> {
+  const { data } = await geocodeClient.get<GoogleGeocodeResponse>("/json", {
+    params: { address, key: GOOGLE_API_KEY },
+  });
+
+  if (data.status !== "OK" || !data.results.length) {
+    throw new Error(`Geocode status ${data.status}`);
+  }
+
+  const result = data.results[0]!;
+  return { result, location: result.geometry.location };
 }

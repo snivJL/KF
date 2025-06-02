@@ -3,16 +3,23 @@ import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Home, Upload, RefreshCw, ContactIcon, PillIcon } from "lucide-react";
+import {
+  Home,
+  Upload,
+  RefreshCw,
+  ContactIcon,
+  PillIcon,
+  ListChecks,
+} from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { isAccessTokenValid } from "@/lib/auth";
+import { signIn, signOut, useSession } from "next-auth/react";
 
 const sidebarLinks = [
   { href: "/", label: "Home", icon: Home },
   { href: "/upload", label: "Upload", icon: Upload },
-  // { href: "/history", label: "History", icon: History },
-  // { href: "/logs", label: "Import Logs", icon: LogOut },
+  { href: "/surveys", label: "Surveys", icon: ListChecks },
   { label: "Sync Data", href: "/sync", icon: RefreshCw },
   { label: "Territories", href: "/territory", icon: ContactIcon },
   {
@@ -29,16 +36,26 @@ const sidebarLinks = [
 
 const Sidebar = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { data: session } = useSession();
   const pathname = usePathname();
 
   const handleAuth = () => {
     window.location.href = "/api/auth/login";
   };
 
+  const hideSidebar =
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname === "/surveys";
+
   useEffect(() => {
     setIsAuthenticated(isAccessTokenValid());
   }, []);
 
+  const handleLogin = () => signIn();
+  const handleLogout = () => signOut();
+
+  if (hideSidebar) return null;
   return (
     <aside className="w-64 bg-[#171717] text-white flex flex-col p-4 space-y-2">
       <div className="mb-6 flex items-center gap-2">
@@ -72,6 +89,24 @@ const Sidebar = () => {
           <p className="text-xs text-center">Authenticated</p>
         ) : (
           <p className="text-xs text-center">Not Authenticated</p>
+        )}
+        {session ? (
+          <>
+            <Button
+              onClick={handleLogout}
+              variant="secondary"
+              className="w-full"
+            >
+              Sign Out
+            </Button>
+            <p className="text-xs text-center">
+              Signed in as {session.user?.name}
+            </p>
+          </>
+        ) : (
+          <Button onClick={handleLogin} variant="secondary" className="w-full">
+            Sign In
+          </Button>
         )}
       </div>
     </aside>

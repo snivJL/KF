@@ -26,6 +26,9 @@ ZOHO_REDIRECT_URI=https://your-app.com/api/auth/callback
 ACCOUNT_URL=https://accounts.zoho.com
 BASE_URL=https://kf.zohoplatform.com
 GOOGLE_API_KEY=your_google_key
+NEXTAUTH_SECRET=your_nextauth_secret
+AUTH_USERNAME=admin
+AUTH_PASSWORD=pass
 ```
 
 ## Getting Started

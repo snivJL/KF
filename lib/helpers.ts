@@ -19,3 +19,7 @@ export async function parseIdsFromFile(file: File): Promise<string[]> {
     })
     .filter((id) => id.length > 0);
 }
+
+export async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}

@@ -39,8 +39,24 @@ export async function GET(req: NextRequest) {
     return new Response("Error fetching token", { status: 500 });
   }
 
-  const { access_token, refresh_token, expires_in } = tokenData;
-  const expirationTimestamp = Date.now() + expires_in * 1000; // expires_in is in seconds
+  const { refresh_token } = tokenData;
+
+  //get refresh token
+  const params = new URLSearchParams({
+    refresh_token,
+    client_id: process.env.ZOHO_CLIENT_ID!,
+    client_secret: process.env.ZOHO_CLIENT_SECRET!,
+    grant_type: "refresh_token",
+  });
+
+  const res = await fetch(tokenUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: params.toString(),
+  });
+
+  const data = await res.json();
+  console.log("REFRESH TOKEN", data);
 
   const isProd = process.env.NODE_ENV === "production";
 
@@ -48,34 +64,11 @@ export async function GET(req: NextRequest) {
     const response = NextResponse.redirect(`${req.nextUrl.origin}/`);
 
     // Save access token (optional httpOnly) — typically you want it client-accessible if needed
-    response.cookies.set("vcrm_access_token", access_token, {
+    response.cookies.set("vcrm_access_token", data.access_token, {
       path: "/",
       secure: true,
       sameSite: "lax",
-      maxAge: expires_in,
       httpOnly: false, // Client needs to send it via headers
-    });
-
-    // Save access token expiration
-    response.cookies.set(
-      "vcrm_access_token_expires",
-      expirationTimestamp.toString(),
-      {
-        path: "/",
-        secure: true,
-        sameSite: "lax",
-        maxAge: expires_in,
-        httpOnly: false,
-      }
-    );
-
-    // Save refresh token (secure and httpOnly!)
-    response.cookies.set("vcrm_refresh_token", refresh_token, {
-      path: "/",
-      secure: true,
-      sameSite: "lax",
-      httpOnly: true,
-      maxAge: 60 * 60 * 24 * 30, // 30 days
     });
 
     return response;
@@ -85,11 +78,7 @@ export async function GET(req: NextRequest) {
       <html>
         <body>
           <script>
-            document.cookie = "vcrm_access_token=${access_token}; path=/; max-age=${expires_in}; samesite=lax";
-            document.cookie = "vcrm_access_token_expires=${expirationTimestamp}; path=/; max-age=${expires_in}; samesite=lax";
-            document.cookie = "vcrm_refresh_token=${refresh_token}; path=/; max-age=${
-      60 * 60 * 24 * 30
-    }; samesite=lax";
+            document.cookie = "vcrm_access_token=${data.access_token}; path=/; samesite=lax";
             window.location.href = "/";
           </script>
         </body>

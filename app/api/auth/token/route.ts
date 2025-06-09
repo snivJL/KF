@@ -1,12 +1,15 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function GET(request:NextRequest) {
-
+export async function GET(request: NextRequest) {
   const cookieStore = await cookies();
   const refreshToken = cookieStore.get("vcrm_access_token")?.value;
 
-  console.log("TOKEN API received refresh token:", request.cookies.get("vcrm_access_token"),refreshToken);
+  console.log(
+    "TOKEN API received refresh token:",
+    request.cookies.get("vcrm_access_token"),
+    refreshToken
+  );
 
   if (!refreshToken) {
     return new NextResponse("Not authenticated", { status: 401 });
@@ -33,9 +36,10 @@ export async function GET(request:NextRequest) {
     console.error("Access token refresh failed", data);
     return new NextResponse("Token refresh failed", { status: 500 });
   }
-
+  console.log(data);
   return NextResponse.json({
     access_token: data.access_token,
+    refreshToken: data.refresh_token,
     expires_in: data.expires_in,
     scope: data.scope,
     token_type: data.token_type,

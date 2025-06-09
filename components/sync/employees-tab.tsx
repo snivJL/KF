@@ -20,6 +20,7 @@ type Employee = {
   id: string;
   code: string;
   name: string;
+  userId: string;
   updatedAt: string;
 };
 
@@ -103,6 +104,7 @@ export function EmployeesTab() {
                 <TableRow>
                   <TableHead>Code</TableHead>
                   <TableHead>Name</TableHead>
+                  <TableHead>User ID</TableHead>
                   <TableHead>Last Synced</TableHead>
                 </TableRow>
               </TableHeader>
@@ -111,6 +113,7 @@ export function EmployeesTab() {
                   <TableRow key={employee.id}>
                     <TableCell>{employee.code}</TableCell>
                     <TableCell>{employee.name}</TableCell>
+                    <TableCell>{employee.userId}</TableCell>
                     <TableCell>
                       {new Date(employee.updatedAt).toLocaleString()}
                     </TableCell>

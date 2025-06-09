@@ -11,7 +11,7 @@ export default function SyncDataPage() {
         {/* Sticky Header inside Tabs */}
         <div className="sticky top-0 z-30 bg-background shadow-b-sm ">
           <div className="p-6 pb-4">
-            <h1 className="text-2xl font-semibold">🔄 Sync Data from VCRM</h1>
+            <h1 className="text-2xl font-semibold">Sync Data from VCRM</h1>
           </div>
 
           <div className="px-6">

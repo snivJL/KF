@@ -47,7 +47,8 @@ model Product {
 model Employee {
   id        String   @id
   code      String   @unique
-  name      String?
+  name      String
+  userId    String?  @unique
   updatedAt DateTime @updatedAt
 }
 
@@ -86,4 +87,54 @@ model User {
   password  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Survey {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  title       String
+  description String? // optional
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  questions Question[]
+  responses Response[]
+}
+
+model Question {
+  id       String       @id @default(uuid())
+  survey   Survey       @relation(fields: [surveyId], references: [id])
+  surveyId String
+  order    Int // 1,2,3,...
+  label    String
+  type     QuestionType
+  options  String[] // only used if type = “multiple_choice” (array of choice labels)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum QuestionType {
+  TEXT
+  TEXTAREA
+  RATING // e.g. 1–5 stars or 1–10 scale
+  SINGLE_CHOICE // Exactly one selectable option (radio buttons)
+  MULTIPLE_CHOICE // One or more selectable options (checkboxes)
+  DROPDOWN
+  CHECKBOX
+  BOOLEAN
+  NUMBER
+  EMAIL
+  DATE
+  TIME
+  SCALE // Custom scale (e.g. 1–7)
+}
+
+model Response {
+  id          String   @id @default(uuid())
+  survey      Survey   @relation(fields: [surveyId], references: [id])
+  surveyId    String
+  submittedAt DateTime @default(now())
+  answers     Json // e.g. { "q1-id": "Some text", "q2-id": 5, "q3-id": "Option A" }
 }

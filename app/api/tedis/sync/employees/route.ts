@@ -11,7 +11,7 @@ export async function POST() {
     const headers = { Authorization: `Bearer ${accessToken}` };
 
     const response = await axios.get(
-      `${BASE_URL}/crm/v6/Employees?fields=id,Code,Name`,
+      `${BASE_URL}/crm/v6/Employees?fields=id,Code,Name,User_assigned`,
       { headers }
     );
     const employees = response.data?.data || [];
@@ -22,12 +22,14 @@ export async function POST() {
         update: {
           code: e.Code,
           name: e.Name,
+          userId: e.User_assigned?.id || null,
           updatedAt: new Date(),
         },
         create: {
           id: e.id,
           code: e.Code,
           name: e.Name,
+          userId: e.User_assigned?.id || null,
           updatedAt: new Date(),
         },
       });

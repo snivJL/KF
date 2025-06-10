@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import axios from "axios";
 import { prisma } from "@/lib/prisma";
-import { getAccessTokenFromServer } from "@/lib/auth-server";
+import { getValidAccessTokenFromServer } from "@/lib/auth-server";
 
 const BASE_URL = process.env.BASE_URL!; // e.g. "https://kf.zohoplatform.com"
 
@@ -73,7 +73,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     };
 
     // Send to Zoho
-    const accessToken = await getAccessTokenFromServer();
+    const accessToken = await getValidAccessTokenFromServer();
     try {
       const zohoRes = await axios.post<{ data: unknown[] }>(
         `${BASE_URL}/crm/v6/Contacts_Employees`,

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAccessTokenFromServer } from "@/lib/auth-server";
+import { getValidAccessTokenFromServer } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
 import axios from "axios";
 
@@ -7,7 +7,7 @@ const BASE_URL = "https://kf.zohoplatform.com";
 
 export async function POST() {
   try {
-    const accessToken = await getAccessTokenFromServer();
+    const accessToken = await getValidAccessTokenFromServer();
     const headers = { Authorization: `Bearer ${accessToken}` };
 
     const response = await axios.get(

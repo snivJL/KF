@@ -1,6 +1,6 @@
 "use server";
 
-import { getAccessTokenFromServer } from "@/lib/auth-server";
+import { getValidAccessTokenFromServer } from "@/lib/auth-server";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
 
@@ -30,7 +30,8 @@ export async function startInvoiceEmployeeSync(formData: FormData): Promise<{
     sheet!
   );
 
-  const token = await getAccessTokenFromServer();
+  let token = await getValidAccessTokenFromServer();
+
   if (!token) {
     throw new Error("Failed to retrieve access token");
   }
@@ -39,10 +40,15 @@ export async function startInvoiceEmployeeSync(formData: FormData): Promise<{
 
   for (const invoice of json) {
     try {
+      token = (await getValidAccessTokenFromServer()) ?? token;
+
       const employee = await prisma.employee.findUnique({
         where: { userId: invoice["Owner.id"] },
       });
-      if (!employee) continue;
+      if (!employee) {
+        console.log(`⚠️ No employee found for user ${invoice["Owner.id"]}`);
+        continue;
+      }
 
       const [invoiceDetail] = await getInvoiceDetails(invoice.Id, token);
       const invoiceItems = [...invoiceDetail.Invoiced_Items];
@@ -50,7 +56,12 @@ export async function startInvoiceEmployeeSync(formData: FormData): Promise<{
       const alreadyAssigned = invoiceItems.every(
         (item) => item.Assigned_Employee
       );
-      if (alreadyAssigned) continue;
+      if (alreadyAssigned) {
+        console.log(
+          `✅ Invoice ${invoice.Id} already has all items assigned to an employee`
+        );
+        continue;
+      }
 
       await updateInvoiceItem(
         employee.id,

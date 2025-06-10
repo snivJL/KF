@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import axios from "axios";
 import { SyncModule, SyncStatus } from "@prisma/client";
-import { getAccessTokenFromServer } from "@/lib/auth-server";
+import { getValidAccessTokenFromServer } from "@/lib/auth-server";
 
 export async function POST() {
   const job = await prisma.syncJob.create({
@@ -49,7 +49,7 @@ async function syncProductsInBackground(jobId: string) {
 }
 
 async function performProductSync(): Promise<number> {
-  const accessToken = await getAccessTokenFromServer();
+  const accessToken = await getValidAccessTokenFromServer();
   const headers = { Authorization: `Bearer ${accessToken}` };
 
   const response = await axios.get(

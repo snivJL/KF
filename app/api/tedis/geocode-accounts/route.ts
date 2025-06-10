@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAccessTokenFromServer } from "@/lib/auth-server";
+import { getValidAccessTokenFromServer } from "@/lib/auth-server";
 import axios from "axios";
 
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY!;
@@ -37,7 +37,7 @@ export async function POST() {
       orderBy: { code: "desc" },
     });
 
-    const accessToken = await getAccessTokenFromServer();
+    const accessToken = await getValidAccessTokenFromServer();
 
     for (const acc of accounts) {
       const fullAddress = [

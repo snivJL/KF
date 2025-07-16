@@ -8,9 +8,10 @@ export async function getInvoiceDetails(invoiceId: string, token: string) {
       Authorization: `Zoho-oauthtoken ${token}`,
     },
   });
+
   const json = await res.json();
   if (!res.ok) throw new Error(json.message || "Failed to fetch invoice items");
-  return json.data ?? [];
+  return json.data;
 }
 
 export async function updateInvoiceItem(
@@ -37,7 +38,6 @@ export async function updateInvoiceItem(
       },
     ],
   };
-
   console.log(
     `[updateInvoiceItem] Assigning employee ${employeeId} to invoice ${invoiceId} for user ${userId}`
   );
@@ -63,6 +63,7 @@ export async function updateInvoiceItem(
       `[updateInvoiceItem] Error updating invoice ${invoiceId}`,
       error
     );
+    console.error(JSON.stringify(error, undefined, 2));
     throw new Error(
       `Failed to update invoice item: ${
         error instanceof Error ? error.message : String(error)

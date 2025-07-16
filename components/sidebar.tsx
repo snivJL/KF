@@ -10,10 +10,9 @@ import {
   ContactIcon,
   PillIcon,
   ListChecks,
+  RecycleIcon,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { isAccessTokenValid } from "@/lib/auth";
 import { signIn, signOut, useSession } from "next-auth/react";
 
 const sidebarLinks = [
@@ -32,10 +31,10 @@ const sidebarLinks = [
     href: "/accounts-employees",
     icon: PillIcon,
   },
+  { label: "Contacts Revamp", href: "/contacts-revamp", icon: RecycleIcon },
 ];
 
 const Sidebar = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { data: session } = useSession();
   const pathname = usePathname();
 
@@ -47,10 +46,6 @@ const Sidebar = () => {
     pathname === "/login" ||
     pathname === "/register" ||
     pathname === "/surveys";
-
-  useEffect(() => {
-    setIsAuthenticated(isAccessTokenValid());
-  }, []);
 
   const handleLogin = () => signIn();
   const handleLogout = () => signOut();
@@ -85,11 +80,6 @@ const Sidebar = () => {
         <Button onClick={handleAuth} variant="secondary" className="w-full">
           Authenticate VCRM
         </Button>
-        {isAuthenticated ? (
-          <p className="text-xs text-center">Authenticated</p>
-        ) : (
-          <p className="text-xs text-center">Not Authenticated</p>
-        )}
         {session ? (
           <>
             <Button

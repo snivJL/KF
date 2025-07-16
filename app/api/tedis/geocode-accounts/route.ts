@@ -48,7 +48,9 @@ export async function POST() {
       ]
         .filter(Boolean)
         .join(", ");
-
+      //10.777504
+      //106.6971592
+      console.log(fullAddress);
       try {
         const { result, location } = await geocodeAddress(fullAddress);
         const {
@@ -77,7 +79,7 @@ export async function POST() {
               {
                 Latitude__C: lat.toFixed(9),
                 Longitude__C: lng.toFixed(9),
-                Confidence_Score__C: confidenceScore,
+                Confidence_Score__C: confidenceScore.toFixed(1),
               },
             ],
           },

@@ -16,7 +16,6 @@ export function parseAxiosError(err: unknown): AxiosErrorDetails {
 
   const res = err.response;
   const details = res?.data?.data?.[0]?.details;
-
   console.error("Zoho API Error:");
   console.error("Status:", res?.status);
   console.error("Data:", res?.data);

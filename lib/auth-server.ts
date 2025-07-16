@@ -68,9 +68,6 @@ export async function getValidAccessTokenFromServer(): Promise<string | null> {
   const cookieStore = await cookies();
   const expires = cookieStore.get("vcrm_access_token_expires")?.value;
   const token = cookieStore.get("vcrm_access_token")?.value;
-  const expiresInMs = parseInt(expires!, 10) - Date.now();
-  const expiresInSec = Math.floor(expiresInMs / 1000);
-  console.log(`Token will expire in ${expiresInSec} seconds`);
 
   if (token && expires && Date.now() < parseInt(expires!, 10) - 60_000) {
     return token;

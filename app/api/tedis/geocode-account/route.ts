@@ -1,14 +1,16 @@
 import { getValidAccessTokenFromServer } from "@/lib/auth-server";
-import { evaluateGeocodeAccuracy, geocodeAddress } from "../helpers";
+import { evaluateGeocodeAccuracy, geocodeAddress } from "@/lib/geocode";
 import { prisma } from "@/lib/prisma";
 import axios from "axios";
 const BASE_URL = process.env.BASE_URL!;
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
+export async function PUT(request: Request) {
+  const formData = await request.formData();
+  const id = formData.get("id") as string;
+
+  if (!id) {
+    throw new Error("No account id in formdata");
+  }
 
   const accessToken = await getValidAccessTokenFromServer();
   const acc = await prisma.account.findFirstOrThrow({

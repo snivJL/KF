@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getValidAccessTokenFromServer } from "@/lib/auth-server";
 import axios from "axios";
-import { evaluateGeocodeAccuracy, geocodeAddress } from "./helpers";
+import { evaluateGeocodeAccuracy, geocodeAddress } from "@/lib/geocode";
 
 const BASE_URL = process.env.BASE_URL!;
 

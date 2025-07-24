@@ -102,7 +102,7 @@ export async function POST() {
             code: row.Code,
             firstName: row.First_Name,
             lastName: row.Last_Name,
-            trigger: row.Workflow_Trigger__C,
+            trigger: row.Workflow_Trigger__C === "true",
             updatedAt: new Date(),
           },
           create: {
@@ -110,7 +110,7 @@ export async function POST() {
             code: row.Code,
             firstName: row.First_Name,
             lastName: row.Last_Name,
-            trigger: row.Workflow_Trigger__C,
+            trigger: row.Workflow_Trigger__C === "true",
             updatedAt: new Date(),
           },
         });

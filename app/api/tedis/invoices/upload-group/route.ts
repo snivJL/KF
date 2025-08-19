@@ -1,32 +1,140 @@
-// app/api/tedis/invoices/upload-group/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import axios from "axios";
+import axios, { type AxiosResponse } from "axios";
 import { format } from "date-fns";
 import { prisma } from "@/lib/prisma";
-import { getValidAccessTokenFromServer } from "@/lib/auth-server";
-import { parseAxiosError } from "@/lib/errors";
 import { assertN8NApiKey } from "@/lib/auth";
+import { parseAxiosError } from "@/lib/errors";
 import type { EnrichedValidatedInvoice } from "@/types/tedis/invoices";
+import { getValidAccessTokenFromServer } from "@/lib/auth-server";
 
-const BASE_URL = process.env.BASE_URL || "https://kf.zohoplatform.com";
+const FALLBACK_BASE_URL = process.env.BASE_URL || "https://kf.zohoplatform.com";
+type ZohoActionStatus = "success" | "error";
+
+interface ZohoRecordResponse<Details = { id: string }> {
+  data: Array<{
+    code: string;
+    message: string;
+    status: ZohoActionStatus;
+    details?: Details;
+  }>;
+}
+
+interface ZohoInvoiceItem {
+  Product_Name: { id: string };
+  Product_Code: string;
+  Assigned_Employee: { id: string };
+  Quantity: number;
+  Discount: number;
+  List_Price: number;
+}
+
+interface ZohoInvoicePayload {
+  Subject: string;
+  Invoice_Date: string; // yyyy-MM-dd
+  Billing_Street: string | null;
+  Billing_City: string | null;
+  Billing_Code: string | null;
+  Billing_Country: string | null;
+  Billing_State: string | null;
+  Account_Name: { id: string };
+  Invoiced_Items: ZohoInvoiceItem[];
+}
+
+type ZohoInvoicesCreateBody = { data: ZohoInvoicePayload[] };
+type ZohoCreateInvoiceResponse = ZohoRecordResponse<{ id: string }>;
+
+async function getAutomationAccessToken(): Promise<{
+  accessToken: string;
+  apiDomain?: string;
+}> {
+  if (!process.env.ZOHO_REFRESH_TOKEN) {
+    // not configured -> skip fallback
+    throw new Error("Automation refresh not configured");
+  }
+  const ACCOUNTS = process.env.ZOHO_ACCOUNTS_URL || "https://accounts.zoho.com";
+  const params = new URLSearchParams({
+    grant_type: "refresh_token",
+    client_id: process.env.ZOHO_CLIENT_ID!,
+    client_secret: process.env.ZOHO_CLIENT_SECRET!,
+    refresh_token: process.env.ZOHO_REFRESH_TOKEN!,
+  });
+  const res = await fetch(`${ACCOUNTS}/oauth/v2/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: params.toString(),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.access_token) {
+    throw new Error(`Zoho refresh failed: ${JSON.stringify(data)}`);
+  }
+  return {
+    accessToken: data.access_token as string,
+    apiDomain: data.api_domain as string | undefined,
+  };
+}
 
 function buildUniqueId(
-  invoiceDate: string | Date,
+  d: string | Date,
   subject: string,
   currentItemId: number
 ) {
-  const d =
-    typeof invoiceDate === "string" ? new Date(invoiceDate) : invoiceDate;
-  return `${format(d, "ddMMyy")} ${subject} ${currentItemId}`;
+  const date = typeof d === "string" ? new Date(d) : d;
+  return `${format(date, "ddMMyy")} ${subject} ${currentItemId}`;
+}
+
+function looksLikeInvalidToken(
+  res: AxiosResponse<ZohoCreateInvoiceResponse, unknown>
+): boolean {
+  const http401 = res.status === 401;
+  const first = res.data?.data?.[0];
+  const code = first?.code;
+  const msg = (first?.message || first?.status || "") as string;
+  return (
+    http401 ||
+    code === "INVALID_OAUTHTOKEN" ||
+    msg.toLowerCase().includes("invalid oauth token")
+  );
+}
+/** Decide which Zoho token to use:
+ * 1) If request has Authorization: Bearer <token> → use it (n8n mode, require x-api-key)
+ * 2) Else try browser flow via getValidAccessTokenFromServer() (cookie-based)
+ * 3) Else (optional) use automation env refresh (server-side)
+ */
+async function resolveZohoToken(req: NextRequest): Promise<{
+  accessToken: string;
+  source: "n8n" | "browser" | "automation";
+  apiDomain?: string;
+}> {
+  const auth = req.headers.get("authorization") || "";
+  if (auth.startsWith("Bearer ")) {
+    // n8n mode: also enforce our API key
+    assertN8NApiKey(req.headers);
+    const accessToken = auth.slice(7).trim();
+    return { accessToken, source: "n8n" };
+  }
+
+  // browser mode (your existing helper reads cookies/NextAuth context)
+  const browserToken = await getValidAccessTokenFromServer();
+  if (browserToken) return { accessToken: browserToken, source: "browser" };
+
+  // optional last-resort automation fallback (if configured)
+  const auto = await getAutomationAccessToken().catch(() => null);
+  if (auto)
+    return {
+      accessToken: auto.accessToken,
+      apiDomain: auto.apiDomain,
+      source: "automation",
+    };
+
+  throw new Error(
+    "No Zoho token available (no Bearer header, cookie token expired, and automation fallback disabled)."
+  );
 }
 
 export async function POST(req: NextRequest) {
   try {
-    // n8n M2M auth (API key header)
-    assertN8NApiKey(req.headers);
-
-    const body = await req.json();
-    const group: EnrichedValidatedInvoice[] = body?.group ?? [];
+    const reqBoy = await req.json();
+    const group: EnrichedValidatedInvoice[] = reqBoy?.group ?? [];
     if (!Array.isArray(group) || group.length === 0) {
       return NextResponse.json(
         { success: false, error: "Missing group" },
@@ -34,42 +142,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Atomically: read current lastId, increment, and get the NEW value
+    // Get Zoho token (n8n → Bearer; browser → cookies; or automation fallback)
+    const tok = await resolveZohoToken(req);
+    const baseUrl = tok.apiDomain || FALLBACK_BASE_URL;
+
+    // Atomic counter increment
     const { uniqueId, currentItemId, first } = await prisma.$transaction(
       async (tx) => {
-        // Ensure row exists; IMPORTANT: we do NOT reset the current value
-        const exists = await tx.invoiceItemCounter.findUnique({
-          where: { id: 1 },
-          select: { id: true },
-        });
-        if (!exists) {
-          // If you prefer silent bootstrap, replace this with an upsert that sets lastId to your known current value.
-          throw new Error("InvoiceItemCounter row (id=1) is missing.");
-        }
-
         const rows = await tx.$queryRaw<Array<{ next: bigint }>>`
         UPDATE "InvoiceItemCounter"
         SET "lastId" = (COALESCE(NULLIF("lastId", ''), '0')::bigint + 1)::text
         WHERE "id" = 1
         RETURNING "lastId"::bigint AS next;
       `;
-
         if (!rows?.length)
           throw new Error("Failed to increment invoice counter.");
 
         const currentItemId = Number(rows[0]!.next);
-        const first = group[0]!;
-        const subjectBase = String(first.subject || "").trim();
+        const f = group[0]!;
         const uniqueId = buildUniqueId(
-          first.invoiceDate,
-          subjectBase,
+          f.invoiceDate,
+          String(f.subject || "").trim(),
           currentItemId
         );
-
-        return { uniqueId, currentItemId, first };
+        return { uniqueId, currentItemId, first: f };
       }
     );
 
+    // Build Zoho payload
     const payload = {
       Subject: uniqueId,
       Invoice_Date: format(new Date(first.invoiceDate), "yyyy-MM-dd"),
@@ -88,24 +188,68 @@ export async function POST(req: NextRequest) {
         List_Price: item.listPrice,
       })),
     };
+    const body: ZohoInvoicesCreateBody = { data: [payload] };
 
-    const accessToken = await getValidAccessTokenFromServer();
+    let res = await axios.post<
+      ZohoCreateInvoiceResponse,
+      AxiosResponse<ZohoCreateInvoiceResponse>,
+      ZohoInvoicesCreateBody
+    >(`${baseUrl}/crm/v6/Invoices`, body, {
+      headers: {
+        Authorization: `Bearer ${tok.accessToken}`,
+        "Content-Type": "application/json",
+      },
+    });
 
-    await axios.post(
-      `${BASE_URL}/crm/v6/Invoices`,
-      { data: [payload] },
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
+    if (looksLikeInvalidToken(res)) {
+      // If we control tokens (browser/automation), try one forced refresh; if n8n-provided token, just return the error
+      if (tok.source === "n8n") {
+        return NextResponse.json(
+          {
+            success: false,
+            subject: uniqueId,
+            error: "Zoho token from caller is invalid/expired.",
+          },
+          { status: 401 }
+        );
       }
-    );
+
+      // Browser/automation retry: get a new token and retry once
+      const retryTok =
+        tok.source === "browser"
+          ? await getValidAccessTokenFromServer() // your helper should refresh if expired
+          : (await getAutomationAccessToken()).accessToken;
+
+      res = await axios.post(
+        `${baseUrl}/crm/v6/Invoices`,
+        { data: [payload] },
+        {
+          headers: {
+            Authorization: `Bearer ${retryTok}`,
+            "Content-Type": "application/json",
+          },
+          validateStatus: () => true,
+        }
+      );
+    }
+
+    if (res.status < 200 || res.status >= 300) {
+      return NextResponse.json(
+        {
+          success: false,
+          subject: uniqueId,
+          error: res?.data?.data?.[0]?.message || `Zoho HTTP ${res.status}`,
+          zoho: res.data,
+        },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
       subject: uniqueId,
-      currentItemId, // the incremented value actually used
+      currentItemId,
+      zoho: res.data,
     });
   } catch (err) {
     const { message } = parseAxiosError(err);

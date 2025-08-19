@@ -52,27 +52,20 @@ export async function POST(req: NextRequest) {
   console.log("Starting invoice validation...");
   const body = await req.json();
   const rows: InvoiceRow[] = body.rows || [];
-  const accessToken: string = body.accessToken;
-  if (!Array.isArray(rows) || !accessToken) {
-    console.warn("Validation failed: Missing data or token.");
-    return Response.json({ error: "Missing data or token." }, { status: 400 });
+  if (!Array.isArray(rows)) {
+    console.warn("Validation failed: Missing data .");
+    return Response.json({ error: "Missing data." }, { status: 400 });
   }
 
-  const entities = await fetchEntitiesFromDB();
+  const { accounts, products, employees } = await fetchEntitiesFromDB();
   const accountDict = Object.fromEntries(
-    entities.accounts.map((a: (typeof entities)["accounts"][0]) => [a.code, a])
+    accounts.map((a: (typeof accounts)[0]) => [a.code, a])
   );
   const productDict = Object.fromEntries(
-    entities.products.map((p: (typeof entities)["products"][0]) => [
-      p.productCode,
-      p,
-    ])
+    products.map((p: (typeof products)[0]) => [p.productCode, p])
   );
   const employeeDict = Object.fromEntries(
-    entities.employees.map((e: (typeof entities)["employees"][0]) => [
-      e.code,
-      e,
-    ])
+    employees.map((e: (typeof employees)[0]) => [e.code, e])
   );
 
   const validInvoices: ValidatedInvoice[] = [];

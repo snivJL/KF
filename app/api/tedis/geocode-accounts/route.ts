@@ -9,7 +9,7 @@ const BASE_URL = process.env.BASE_URL!;
 export async function POST() {
   try {
     const accounts = await prisma.account.findMany({
-      where: { latitude: null, longitude: null },
+      where: { longitude: null, latitude: null },
       orderBy: { code: "desc" },
     });
 
@@ -24,11 +24,11 @@ export async function POST() {
       ]
         .filter(Boolean)
         .join(", ");
-      //10.777504
-      //106.6971592
+
       console.log(fullAddress);
       try {
         const { result, location } = await geocodeAddress(fullAddress);
+
         const {
           confidenceScore,
           isAccurate,

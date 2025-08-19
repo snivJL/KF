@@ -19,6 +19,8 @@ type GeocodeResult = {
   };
   types: string[];
   address_components: { long_name: string; types: string[] }[];
+  formatted_address: string;
+  place_id: string;
 };
 
 interface GoogleGeocodeResponse {

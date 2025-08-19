@@ -6,6 +6,7 @@ import type {
   ValidationResult,
 } from "@/types/tedis/invoices";
 import { format } from "date-fns";
+import { assertN8NApiKey } from "@/lib/auth";
 
 const safeFloat = (value: unknown, def = 0.0): number => {
   try {
@@ -52,6 +53,8 @@ export async function POST(req: NextRequest) {
   console.log("Starting invoice validation...");
   const body = await req.json();
   const rows: InvoiceRow[] = body.rows || [];
+  assertN8NApiKey(req.headers);
+
   if (!Array.isArray(rows)) {
     console.warn("Validation failed: Missing data .");
     return Response.json({ error: "Missing data." }, { status: 400 });

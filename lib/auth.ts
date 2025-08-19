@@ -28,3 +28,11 @@ export async function fetchWithAuth(input: RequestInfo, init?: RequestInit) {
     headers: authHeaders,
   });
 }
+
+export function assertN8NApiKey(headers: Headers) {
+  const provided = headers.get("x-api-key");
+  const expected = process.env.N8N_API_KEY;
+  if (!expected || provided !== expected) {
+    throw new Response("Unauthorized", { status: 401 });
+  }
+}

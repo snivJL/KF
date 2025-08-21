@@ -26,6 +26,7 @@ model Account {
   geocodeConfidence Float?
   geocodePrecision  String?
   geocodeRadius     Float?
+  Invoice           Invoice[]
 }
 
 model Contact {
@@ -38,18 +39,20 @@ model Contact {
 }
 
 model Product {
-  id          String   @id
-  productCode String   @unique
+  id          String        @id
+  productCode String        @unique
   name        String?
-  updatedAt   DateTime @updatedAt
+  updatedAt   DateTime      @updatedAt
+  InvoiceItem InvoiceItem[]
 }
 
 model Employee {
-  id        String   @id
-  code      String   @unique
-  name      String
-  userId    String?  @unique
-  updatedAt DateTime @updatedAt
+  id          String        @id
+  code        String        @unique
+  name        String
+  userId      String?       @unique
+  updatedAt   DateTime      @updatedAt
+  InvoiceItem InvoiceItem[]
 }
 
 model InvoiceItemCounter {
@@ -89,52 +92,53 @@ model User {
   updatedAt DateTime @updatedAt
 }
 
-model Survey {
-  id          String   @id @default(uuid())
-  slug        String   @unique
-  title       String
-  description String? // optional
-  isPublic    Boolean  @default(true)
+model Invoice {
+  id        String    @id @default(uuid())
+  zohoId    String    @unique
+  subject   String?
+  date      DateTime?
+  // Link to existing Account model (Zoho Account ID stored in Account.id)
+  accountId String?
+  account   Account?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  subtotal    Decimal?      @db.Decimal(18, 6)
+  discount    Decimal?      @db.Decimal(18, 6)
+  tax         Decimal?      @db.Decimal(18, 6)
+  grandTotal  Decimal?      @db.Decimal(18, 6)
+  currency    String?
+  status      String?
+  contentHash String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  items       InvoiceItem[]
+}
+
+model InvoiceItem {
+  id        String  @id @default(uuid())
+  zohoRowId String  @unique
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productName String?
+
+  quantity  Decimal? @db.Decimal(18, 6)
+  listPrice Decimal? @db.Decimal(18, 6)
+  discount  Decimal? @db.Decimal(18, 6)
+  tax       Decimal? @db.Decimal(18, 6)
+  amount    Decimal? @db.Decimal(18, 6)
+  total     Decimal? @db.Decimal(18, 6)
+
+  employeeId     String?
+  employee       Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  employeeZohoId String?
+
+  contentHash String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  questions Question[]
-  responses Response[]
-}
-
-model Question {
-  id       String       @id @default(uuid())
-  survey   Survey       @relation(fields: [surveyId], references: [id])
-  surveyId String
-  order    Int // 1,2,3,...
-  label    String
-  type     QuestionType
-  options  String[] // only used if type = “multiple_choice” (array of choice labels)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-enum QuestionType {
-  TEXT
-  TEXTAREA
-  RATING // e.g. 1–5 stars or 1–10 scale
-  SINGLE_CHOICE // Exactly one selectable option (radio buttons)
-  MULTIPLE_CHOICE // One or more selectable options (checkboxes)
-  DROPDOWN
-  CHECKBOX
-  BOOLEAN
-  NUMBER
-  EMAIL
-  DATE
-  TIME
-  SCALE // Custom scale (e.g. 1–7)
-}
-
-model Response {
-  id          String   @id @default(uuid())
-  survey      Survey   @relation(fields: [surveyId], references: [id])
-  surveyId    String
-  submittedAt DateTime @default(now())
-  answers     Json // e.g. { "q1-id": "Some text", "q2-id": 5, "q3-id": "Option A" }
+  @@index([invoiceId])
+  @@index([employeeId])
+  @@index([employeeZohoId])
 }

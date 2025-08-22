@@ -1,4 +1,3 @@
-// /scripts/importInvoices.ts
 import fs from "fs";
 import csv from "csv-parser";
 import { prisma } from "@/lib/prisma";
@@ -54,7 +53,7 @@ async function loadCsv<T>(
   });
 }
 
-function parseFormattedNumber(value) {
+function parseFormattedNumber(value?: string) {
   if (!value || value === "") return null;
 
   // Remove dots (thousands separators) and convert to number

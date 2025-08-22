@@ -23,12 +23,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { UIInvoice } from "@/app/invoices/page";
 import { invoiceColumns } from "./columns";
 import { currencyFormat } from "@/lib/format";
-import { ExternalLink } from "lucide-react";
 
 export function InvoicesTable(props: {
   initialData: UIInvoice[];
@@ -89,7 +87,7 @@ export function InvoicesTable(props: {
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.map((row, index) => (
+            {table.getRowModel().rows.map((row) => (
               <Fragment key={row.id}>
                 <TableRow
                   data-state={row.getIsSelected() ? "selected" : undefined}

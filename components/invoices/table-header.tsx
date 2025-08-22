@@ -4,8 +4,17 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
+import MassUpdateDialog from "./mass-update-dialog";
 
-export default function Header({ q, total }: { q: string; total: number }) {
+export default function Header({
+  q,
+  total,
+  filters,
+}: {
+  q: string;
+  total: number;
+  filters: Record<string, string>;
+}) {
   const router = useRouter();
   const [value, setValue] = useState(q);
   const [, startTransition] = useTransition();
@@ -60,6 +69,7 @@ export default function Header({ q, total }: { q: string; total: number }) {
             </Button>
           )}
         </div>
+        <MassUpdateDialog filters={filters} />
         <Button
           variant="outline"
           size="default"

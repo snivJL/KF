@@ -47,7 +47,7 @@ const invoiceQuery = Prisma.validator<Prisma.InvoiceDefaultArgs>()({
     },
     items: {
       orderBy: { createdAt: "asc" },
-      take: 10,
+      take: 100,
       select: {
         id: true,
         zohoRowId: true,
@@ -68,7 +68,7 @@ type DatabaseInvoice = Prisma.InvoiceGetPayload<typeof invoiceQuery>;
 const SearchParamsSchema = z.object({
   q: z.string().optional().default(""),
   page: z.coerce.number().int().min(1).optional().default(1),
-  pageSize: z.coerce.number().int().min(10).max(200).optional().default(50),
+  pageSize: z.coerce.number().int().min(10).max(200).optional().default(100),
   dateFrom: z.string().optional().default(""),
   dateTo: z.string().optional().default(""),
   employeeCode: z.string().optional().default(""),
@@ -76,9 +76,14 @@ const SearchParamsSchema = z.object({
   productCode: z.string().optional().default(""),
 });
 
-export default async function AdminInvoicesPage(props: {
-  searchParams?: Record<string, string | string[]>;
-}) {
+interface Props {
+  searchParams?: Promise<Record<string, string | string[]>>;
+}
+
+export default async function AdminInvoicesPage({ searchParams }: Props) {
+  // Await the searchParams promise
+  const searchParamsResolved = await searchParams;
+
   const {
     q,
     page,
@@ -90,7 +95,7 @@ export default async function AdminInvoicesPage(props: {
     productCode,
   } = SearchParamsSchema.parse(
     Object.fromEntries(
-      Object.entries(props.searchParams ?? {}).map(([k, v]) => [
+      Object.entries(searchParamsResolved ?? {}).map(([k, v]) => [
         k,
         Array.isArray(v) ? v[0] : v,
       ])
@@ -130,10 +135,8 @@ export default async function AdminInvoicesPage(props: {
       product: { productCode: { contains: productCode, mode: "insensitive" } },
     });
   }
-  if (itemConds.length > 0) {
-    where.items = { some: { AND: itemConds } };
-  }
 
+  // Simplified item conditions logic
   const itemWhere = itemConds.length > 0 ? { AND: itemConds } : undefined;
   if (itemWhere) {
     where.items = { some: itemWhere };
@@ -152,16 +155,29 @@ export default async function AdminInvoicesPage(props: {
             items: itemWhere ? { where: itemWhere } : true,
           },
         },
-        items: { ...invoiceQuery.include.items, where: itemWhere },
+        items: {
+          ...invoiceQuery.include.items,
+          where: itemWhere,
+        },
       },
     }),
     prisma.invoice.count({ where }),
   ]);
 
+  const filters = {
+    q,
+    dateFrom,
+    dateTo,
+    employeeCode,
+    accountCode,
+    productCode,
+  };
+
   const data: UIInvoice[] = rows.map(transformToUI);
+
   return (
     <div className="container mx-auto p-6 space-y-8 max-w-7xl">
-      <Header q={q} total={total} />
+      <Header q={q} total={total} filters={filters} />
       <Filters
         q={q}
         dateFrom={dateFrom}

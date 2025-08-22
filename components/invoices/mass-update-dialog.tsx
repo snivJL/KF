@@ -1,11 +1,25 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { massUpdateInvoices } from "@/app/invoices/actions";
-import { CheckCircle, AlertCircle, XCircle, Loader2, Info } from "lucide-react";
+import {
+  CheckCircle,
+  AlertCircle,
+  XCircle,
+  Loader2,
+  Info,
+  ChevronDown,
+} from "lucide-react";
+import { getAllEmployees } from "@/lib/actions/employees";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 
 interface UpdateResult {
   success: boolean;
@@ -17,6 +31,12 @@ interface UpdateResult {
   };
 }
 
+interface Employee {
+  id: string;
+  code: string;
+  name?: string;
+}
+
 export default function MassUpdateDialog({
   filters,
 }: {
@@ -24,17 +44,41 @@ export default function MassUpdateDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [field, setField] = useState("employeeCode");
-  const [value, setValue] = useState("");
+  const [selectedEmployee, setSelectedEmployee] = useState<string>("");
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
   const [result, setResult] = useState<UpdateResult | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const hasFilters = Object.values(filters).some((v) => v);
 
+  useEffect(() => {
+    console.log(open, employees);
+    if (open && employees.length === 0) {
+      console.log("fetching");
+      fetchEmployees();
+    }
+  }, [open]);
+
+  const fetchEmployees = async () => {
+    setLoadingEmployees(true);
+    try {
+      const employees = await getAllEmployees();
+      console.log(employees);
+      setEmployees(employees);
+    } catch (error) {
+      console.error("Error fetching employees:", error);
+      setEmployees([]);
+    } finally {
+      setLoadingEmployees(false);
+    }
+  };
+
   const onSubmit = () => {
-    if (!value.trim()) {
+    if (!selectedEmployee) {
       setResult({
         success: false,
-        message: "Please enter a value",
+        message: "Please select an employee",
         details: { errorType: "validation" },
       });
       return;
@@ -44,8 +88,17 @@ export default function MassUpdateDialog({
 
     startTransition(async () => {
       try {
-        // Call the server action and expect it to return a result object
-        const response = await massUpdateInvoices({ filters, field, value });
+        // Call the server action with the selected employee code
+        const selectedEmployeeData = employees.find(
+          (emp) => emp.id === selectedEmployee
+        );
+        const employeeCode = selectedEmployeeData?.code || selectedEmployee;
+
+        const response = await massUpdateInvoices({
+          filters,
+          field,
+          value: employeeCode,
+        });
 
         // Handle successful response
         setResult({
@@ -58,7 +111,7 @@ export default function MassUpdateDialog({
         setTimeout(() => {
           setOpen(false);
           setResult(null);
-          setValue("");
+          setSelectedEmployee("");
         }, 2000);
       } catch (error) {
         // Parse different types of errors
@@ -76,7 +129,8 @@ export default function MassUpdateDialog({
           errorMessage.includes("not found")
         ) {
           errorType = "validation";
-          userMessage = `Employee "${value}" was not found. Please check the employee code.`;
+          userMessage =
+            "Selected employee was not found. Please try selecting a different employee.";
         } else if (errorMessage.includes("Zoho")) {
           errorType = "zoho";
           if (errorMessage.includes("authentication failed")) {
@@ -160,7 +214,7 @@ export default function MassUpdateDialog({
   const handleClose = () => {
     setOpen(false);
     setResult(null);
-    setValue("");
+    setSelectedEmployee("");
   };
 
   const getFilterSummary = () => {
@@ -170,6 +224,13 @@ export default function MassUpdateDialog({
     return activeFilters.map(([key, value]) => `${key}: ${value}`).join(", ");
   };
 
+  const getSelectedEmployeeDisplay = () => {
+    const employee = employees.find((emp) => emp.id === selectedEmployee);
+    if (!employee) return "Select an employee...";
+    return `${employee.code}${employee.name ? ` - ${employee.name}` : ""}`;
+  };
+  const employeeLabel = (emp?: Employee) =>
+    emp ? `${emp.code}${emp.name ? ` - ${emp.name}` : ""}` : "";
   return (
     <>
       <Button
@@ -203,28 +264,60 @@ export default function MassUpdateDialog({
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="mass-field">Field to Update</Label>
-                <select
-                  id="mass-field"
+                <Select
                   value={field}
-                  onChange={(e) => setField(e.target.value)}
-                  className="w-full rounded-md border bg-background px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onValueChange={setField}
                   disabled={isPending}
                 >
-                  <option value="employeeCode">Employee Code</option>
-                  {/* Add more options as you extend functionality */}
-                </select>
+                  <SelectTrigger id="mass-field" className="w-full">
+                    <SelectValue placeholder="Choose field…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="employeeCode">
+                      Employee Assignment
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="mass-value">New Value</Label>
-                <Input
-                  id="mass-value"
-                  value={value}
-                  onChange={(e) => setValue(e.target.value)}
-                  placeholder="Enter employee code..."
-                  disabled={isPending}
-                  className="focus:ring-2 focus:ring-blue-500"
-                />
+                <Label htmlFor="employee-select">Select Employee</Label>
+                <div className="relative">
+                  <Select
+                    value={selectedEmployee}
+                    onValueChange={setSelectedEmployee}
+                    disabled={isPending || loadingEmployees}
+                  >
+                    <SelectTrigger id="employee-select" className="w-full">
+                      <SelectValue
+                        placeholder={
+                          loadingEmployees
+                            ? "Loading employees…"
+                            : "Select an employee…"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      {employees.map((emp) => (
+                        <SelectItem key={emp.id} value={emp.id}>
+                          {employeeLabel(emp)}
+                        </SelectItem>
+                      ))}
+                      {employees.length === 0 && !loadingEmployees && (
+                        <div className="px-3 py-2 text-sm text-amber-600">
+                          No employees found. Please check your database.
+                        </div>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                </div>
+
+                {employees.length === 0 && !loadingEmployees && (
+                  <p className="text-sm text-amber-600">
+                    No employees found. Please check your database.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -238,7 +331,9 @@ export default function MassUpdateDialog({
                       <div>
                         <p className="font-medium">Updating invoices...</p>
                         <p className="text-sm opacity-75 mt-1">
-                          This may take a moment while we sync with Zoho
+                          Assigning items to{" "}
+                          {getSelectedEmployeeDisplay().split(" - ")[0]} and
+                          syncing with Zoho
                         </p>
                       </div>
                     ) : (
@@ -272,7 +367,7 @@ export default function MassUpdateDialog({
               {!result?.success && (
                 <Button
                   onClick={onSubmit}
-                  disabled={isPending || !value.trim()}
+                  disabled={isPending || !selectedEmployee || loadingEmployees}
                   className="min-w-[100px]"
                 >
                   {isPending ? (

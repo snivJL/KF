@@ -176,13 +176,13 @@ function ItemsSubTable({ invoice }: { invoice: UIInvoice }) {
             {invoice.itemsCount.toLocaleString()}
           </span>
         </div>
-        <Link
+        {/* <Link
           href={`/admin/invoices/${invoice.id}`}
           className="inline-flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors font-medium"
         >
           View details
           <ExternalLink className="h-4 w-4" />
-        </Link>
+        </Link> */}
       </div>
       <div className="overflow-x-auto">
         <Table>
@@ -209,15 +209,15 @@ function ItemsSubTable({ invoice }: { invoice: UIInvoice }) {
               <TableHead className="text-right font-semibold text-foreground h-11 px-4">
                 Total
               </TableHead>
-              <TableHead className="font-semibold text-foreground h-11 px-4">
+              {/* <TableHead className="font-semibold text-foreground h-11 px-4">
                 Employee
-              </TableHead>
+              </TableHead> */}
               <TableHead className="font-semibold text-foreground h-11 px-4">
                 Employee Code
               </TableHead>
-              <TableHead className="font-semibold text-foreground h-11 px-6">
+              {/* <TableHead className="font-semibold text-foreground h-11 px-6">
                 Row ID
-              </TableHead>
+              </TableHead> */}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -260,15 +260,15 @@ function ItemsSubTable({ invoice }: { invoice: UIInvoice }) {
                   <TableCell className="text-right font-semibold px-4 py-3">
                     {currencyFormat(it.total)}
                   </TableCell>
-                  <TableCell className="text-muted-foreground px-4 py-3">
+                  {/* <TableCell className="text-muted-foreground px-4 py-3">
                     {it.employeeId ?? "—"}
-                  </TableCell>
+                  </TableCell> */}
                   <TableCell className="font-mono text-xs text-muted-foreground px-4 py-3">
                     {it.employeeCode ?? "—"}
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground px-6 py-3">
+                  {/* <TableCell className="font-mono text-xs text-muted-foreground px-6 py-3">
                     {it.zohoRowId}
-                  </TableCell>
+                  </TableCell> */}
                 </TableRow>
               ))
             )}

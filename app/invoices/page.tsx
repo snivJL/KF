@@ -3,6 +3,7 @@ import { z } from "zod";
 import { InvoicesTable } from "@/components/invoices/data-table";
 import Header from "@/components/invoices/table-header";
 import { Prisma } from "@prisma/client";
+import Filters from "@/components/invoices/filter-bar";
 
 export type UIInvoice = {
   id: string;
@@ -68,12 +69,26 @@ const SearchParamsSchema = z.object({
   q: z.string().optional().default(""),
   page: z.coerce.number().int().min(1).optional().default(1),
   pageSize: z.coerce.number().int().min(10).max(200).optional().default(50),
+  dateFrom: z.string().optional().default(""),
+  dateTo: z.string().optional().default(""),
+  employeeCode: z.string().optional().default(""),
+  accountCode: z.string().optional().default(""),
+  productCode: z.string().optional().default(""),
 });
 
 export default async function AdminInvoicesPage(props: {
   searchParams?: Record<string, string | string[]>;
 }) {
-  const { q, page, pageSize } = SearchParamsSchema.parse(
+  const {
+    q,
+    page,
+    pageSize,
+    dateFrom,
+    dateTo,
+    employeeCode,
+    accountCode,
+    productCode,
+  } = SearchParamsSchema.parse(
     Object.fromEntries(
       Object.entries(props.searchParams ?? {}).map(([k, v]) => [
         k,
@@ -82,15 +97,47 @@ export default async function AdminInvoicesPage(props: {
     )
   );
 
-  const where: Prisma.InvoiceWhereInput = q
-    ? {
-        OR: [
-          { subject: { contains: q, mode: "insensitive" } },
-          { zohoId: { contains: q } },
-          { accountId: { contains: q } },
-        ],
-      }
-    : {};
+  const where: Prisma.InvoiceWhereInput = {};
+
+  if (q) {
+    where.OR = [
+      { subject: { contains: q, mode: "insensitive" } },
+      { zohoId: { contains: q } },
+      { accountId: { contains: q } },
+    ];
+  }
+
+  if (dateFrom || dateTo) {
+    where.date = {};
+    if (dateFrom) where.date.gte = new Date(dateFrom);
+    if (dateTo) where.date.lte = new Date(dateTo);
+  }
+
+  if (accountCode) {
+    where.account = {
+      code: { contains: accountCode, mode: "insensitive" },
+    };
+  }
+
+  const itemConds: Prisma.InvoiceItemWhereInput[] = [];
+  if (employeeCode) {
+    itemConds.push({
+      employee: { code: { contains: employeeCode, mode: "insensitive" } },
+    });
+  }
+  if (productCode) {
+    itemConds.push({
+      product: { productCode: { contains: productCode, mode: "insensitive" } },
+    });
+  }
+  if (itemConds.length > 0) {
+    where.items = { some: { AND: itemConds } };
+  }
+
+  const itemWhere = itemConds.length > 0 ? { AND: itemConds } : undefined;
+  if (itemWhere) {
+    where.items = { some: itemWhere };
+  }
 
   const [rows, total] = await Promise.all([
     prisma.invoice.findMany({
@@ -98,7 +145,15 @@ export default async function AdminInvoicesPage(props: {
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       skip: (page - 1) * pageSize,
       take: pageSize,
-      ...invoiceQuery,
+      include: {
+        ...invoiceQuery.include,
+        _count: {
+          select: {
+            items: itemWhere ? { where: itemWhere } : true,
+          },
+        },
+        items: { ...invoiceQuery.include.items, where: itemWhere },
+      },
     }),
     prisma.invoice.count({ where }),
   ]);
@@ -107,6 +162,14 @@ export default async function AdminInvoicesPage(props: {
   return (
     <div className="container mx-auto p-6 space-y-8 max-w-7xl">
       <Header q={q} total={total} />
+      <Filters
+        q={q}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        employeeCode={employeeCode}
+        accountCode={accountCode}
+        productCode={productCode}
+      />
       <InvoicesTable
         initialData={data}
         page={page}

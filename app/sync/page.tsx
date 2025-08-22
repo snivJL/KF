@@ -3,7 +3,6 @@ import { ProductsTab } from "@/components/sync/products-tab";
 import { EmployeesTab } from "@/components/sync/employees-tab";
 import AccountsTab from "@/components/sync/accounts-tab";
 import ContactsTab from "@/components/sync/contacts-tab";
-import InvoicesTab from "@/components/sync/invoices-tab";
 
 export default function SyncDataPage() {
   return (
@@ -21,7 +20,6 @@ export default function SyncDataPage() {
               <TabsTrigger value="employees">Employees</TabsTrigger>
               <TabsTrigger value="accounts">Accounts</TabsTrigger>
               <TabsTrigger value="contacts">Contacts</TabsTrigger>
-              <TabsTrigger value="invoices">Invoices</TabsTrigger>
             </TabsList>
           </div>
         </div>
@@ -41,9 +39,6 @@ export default function SyncDataPage() {
           </TabsContent>
           <TabsContent value="contacts">
             <ContactsTab />
-          </TabsContent>
-          <TabsContent value="invoices">
-            <InvoicesTab />
           </TabsContent>
         </div>
       </Tabs>

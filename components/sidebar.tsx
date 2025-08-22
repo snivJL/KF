@@ -11,6 +11,8 @@ import {
   PillIcon,
   ListChecks,
   RecycleIcon,
+  CurrencyIcon,
+  ReceiptIcon,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { signIn, signOut, useSession } from "next-auth/react";
@@ -31,7 +33,7 @@ const sidebarLinks = [
     href: "/accounts-employees",
     icon: PillIcon,
   },
-  { label: "Contacts Revamp", href: "/contacts-revamp", icon: RecycleIcon },
+  { label: "Invoices", href: "/invoices", icon: ReceiptIcon },
 ];
 
 const Sidebar = () => {

@@ -1,10 +1,10 @@
-"use client";
-import { Search, Download, X } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import { Input } from "../ui/input";
-import { Button } from "../ui/button";
-import MassUpdateDialog from "./mass-update-dialog";
+'use client';
+import { Search, Download, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useState, useTransition } from 'react';
+import { Input } from '../ui/input';
+import { Button } from '../ui/button';
+import MassUpdateDialog from './mass-update-dialog';
 
 export default function Header({
   q,
@@ -20,11 +20,11 @@ export default function Header({
   const [, startTransition] = useTransition();
 
   const clearSearch = () => {
-    setValue("");
+    setValue('');
     startTransition(() => {
       const url = new URL(window.location.href);
-      url.searchParams.delete("q");
-      url.searchParams.set("page", "1");
+      url.searchParams.delete('q');
+      url.searchParams.set('page', '1');
       router.push(url.toString());
     });
   };
@@ -44,12 +44,12 @@ export default function Header({
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
+              if (e.key === 'Enter') {
                 startTransition(() => {
                   const url = new URL(window.location.href);
-                  if (value) url.searchParams.set("q", value);
-                  else url.searchParams.delete("q");
-                  url.searchParams.set("page", "1");
+                  if (value) url.searchParams.set('q', value);
+                  else url.searchParams.delete('q');
+                  url.searchParams.set('page', '1');
                   router.push(url.toString());
                 });
               }
@@ -77,23 +77,21 @@ export default function Header({
           onClick={() => {
             // Export current page as CSV (client-side)
             const table = document.getElementById(
-              "invoice-table"
+              'invoice-table',
             ) as HTMLTableElement | null;
             if (!table) return;
-            const rows = Array.from(table.querySelectorAll("tr"));
+            const rows = Array.from(table.querySelectorAll('tr'));
             const csv = rows
               .map((tr) =>
-                Array.from(tr.querySelectorAll("th,td"))
-                  .map(
-                    (c) => '"' + (c.textContent ?? "").replace(/"/g, '""') + '"'
-                  )
-                  .join(",")
+                Array.from(tr.querySelectorAll('th,td'))
+                  .map((c) => `"${(c.textContent ?? '').replace(/"/g, '""')}"`)
+                  .join(','),
               )
-              .join("\n");
-            const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-            const a = document.createElement("a");
+              .join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = "invoices_page.csv";
+            a.download = 'invoices_page.csv';
             a.click();
           }}
         >

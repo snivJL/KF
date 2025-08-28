@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useState, useTransition, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { massUpdateInvoices } from "@/app/invoices/actions";
+import { useState, useTransition, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { massUpdateInvoices } from '@/app/invoices/actions';
 import {
   CheckCircle,
   AlertCircle,
@@ -11,15 +11,16 @@ import {
   Loader2,
   Info,
   ChevronDown,
-} from "lucide-react";
-import { getAllEmployees } from "@/lib/actions/employees";
+} from 'lucide-react';
+import { getAllEmployees } from '@/lib/actions/employees';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../ui/select";
+} from '../ui/select';
+import { toast } from 'sonner';
 
 interface UpdateResult {
   success: boolean;
@@ -27,7 +28,7 @@ interface UpdateResult {
   details: {
     itemsUpdated?: number;
     invoicesUpdated?: number;
-    errorType?: "validation" | "zoho" | "database" | "network" | "unknown";
+    errorType?: 'validation' | 'zoho' | 'database' | 'network' | 'unknown';
   };
 }
 
@@ -37,28 +38,80 @@ interface Employee {
   name?: string;
 }
 
+interface ActiveJob {
+  jobId: string;
+  progress: number;
+  status: string;
+  totalItems: number;
+  processedItems: number;
+}
+
 export default function MassUpdateDialog({
   filters,
 }: {
   filters: Record<string, string>;
 }) {
   const [open, setOpen] = useState(false);
-  const [field, setField] = useState("employeeCode");
-  const [selectedEmployee, setSelectedEmployee] = useState<string>("");
+  const [field, setField] = useState('employeeCode');
+  const [selectedEmployee, setSelectedEmployee] = useState<string>('');
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
   const [result, setResult] = useState<UpdateResult | null>(null);
   const [isPending, startTransition] = useTransition();
-
+  const [activeJob, setActiveJob] = useState<ActiveJob | null>(null);
   const hasFilters = Object.values(filters).some((v) => v);
 
   useEffect(() => {
     console.log(open, employees);
     if (open && employees.length === 0) {
-      console.log("fetching");
+      console.log('fetching');
       fetchEmployees();
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!activeJob) return;
+
+    const pollProgress = async () => {
+      try {
+        const response = await fetch(`/api/jobs/${activeJob.jobId}/progress`);
+        const data = await response.json();
+
+        if (data.progress) {
+          setActiveJob({
+            jobId: data.progress.jobId,
+            progress: data.progress.progress,
+            status: data.progress.status,
+            totalItems: data.progress.totalItems,
+            processedItems: data.progress.processedItems,
+          });
+
+          // Remove active job when completed
+          if (
+            ['COMPLETED', 'FAILED', 'CANCELLED'].includes(data.progress.status)
+          ) {
+            setTimeout(() => {
+              setActiveJob(null);
+              if (data.progress.status === 'COMPLETED') {
+                toast('Mass update completed successfully!');
+                // Refresh your invoice list here
+                window.location.reload();
+              } else if (data.progress.status === 'FAILED') {
+                toast.error(
+                  'Mass update failed. Please check the job details.',
+                );
+              }
+            }, 2000);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to poll job progress:', error);
+      }
+    };
+
+    const interval = setInterval(pollProgress, 2000);
+    return () => clearInterval(interval);
+  }, [activeJob]);
 
   const fetchEmployees = async () => {
     setLoadingEmployees(true);
@@ -67,7 +120,7 @@ export default function MassUpdateDialog({
       console.log(employees);
       setEmployees(employees);
     } catch (error) {
-      console.error("Error fetching employees:", error);
+      console.error('Error fetching employees:', error);
       setEmployees([]);
     } finally {
       setLoadingEmployees(false);
@@ -78,8 +131,8 @@ export default function MassUpdateDialog({
     if (!selectedEmployee) {
       setResult({
         success: false,
-        message: "Please select an employee",
-        details: { errorType: "validation" },
+        message: 'Please select an employee',
+        details: { errorType: 'validation' },
       });
       return;
     }
@@ -90,7 +143,7 @@ export default function MassUpdateDialog({
       try {
         // Call the server action with the selected employee code
         const selectedEmployeeData = employees.find(
-          (emp) => emp.id === selectedEmployee
+          (emp) => emp.id === selectedEmployee,
         );
         const employeeCode = selectedEmployeeData?.code || selectedEmployee;
 
@@ -103,7 +156,7 @@ export default function MassUpdateDialog({
         // Handle successful response
         setResult({
           success: true,
-          message: "Update completed successfully!",
+          message: 'Update completed successfully!',
           details: response?.details || {},
         });
 
@@ -111,50 +164,50 @@ export default function MassUpdateDialog({
         setTimeout(() => {
           setOpen(false);
           setResult(null);
-          setSelectedEmployee("");
+          setSelectedEmployee('');
         }, 2000);
       } catch (error) {
         // Parse different types of errors
         const errorMessage =
           error instanceof Error
             ? error.message
-            : "An unexpected error occurred";
+            : 'An unexpected error occurred';
 
-        let errorType: UpdateResult["details"]["errorType"] = "unknown";
+        let errorType: UpdateResult['details']['errorType'] = 'unknown';
         let userMessage = errorMessage;
 
         // Categorize errors for better user experience
         if (
-          errorMessage.includes("Employee with code") &&
-          errorMessage.includes("not found")
+          errorMessage.includes('Employee with code') &&
+          errorMessage.includes('not found')
         ) {
-          errorType = "validation";
+          errorType = 'validation';
           userMessage =
-            "Selected employee was not found. Please try selecting a different employee.";
-        } else if (errorMessage.includes("Zoho")) {
-          errorType = "zoho";
-          if (errorMessage.includes("authentication failed")) {
+            'Selected employee was not found. Please try selecting a different employee.';
+        } else if (errorMessage.includes('Zoho')) {
+          errorType = 'zoho';
+          if (errorMessage.includes('authentication failed')) {
             userMessage =
-              "Authentication with Zoho failed. Please contact your administrator.";
-          } else if (errorMessage.includes("rate limit")) {
+              'Authentication with Zoho failed. Please contact your administrator.';
+          } else if (errorMessage.includes('rate limit')) {
             userMessage =
-              "Too many requests to Zoho. Please wait a moment and try again.";
-          } else if (errorMessage.includes("server error")) {
+              'Too many requests to Zoho. Please wait a moment and try again.';
+          } else if (errorMessage.includes('server error')) {
             userMessage =
-              "Zoho services are temporarily unavailable. Please try again later.";
+              'Zoho services are temporarily unavailable. Please try again later.';
           } else {
             userMessage =
-              "Failed to sync with Zoho. Your changes were not saved.";
+              'Failed to sync with Zoho. Your changes were not saved.';
           }
-        } else if (errorMessage.includes("timeout")) {
-          errorType = "network";
-          userMessage = "The operation took too long. Please try again.";
+        } else if (errorMessage.includes('timeout')) {
+          errorType = 'network';
+          userMessage = 'The operation took too long. Please try again.';
         } else if (
-          errorMessage.includes("database") ||
-          errorMessage.includes("transaction")
+          errorMessage.includes('database') ||
+          errorMessage.includes('transaction')
         ) {
-          errorType = "database";
-          userMessage = "Database error occurred. Please try again.";
+          errorType = 'database';
+          userMessage = 'Database error occurred. Please try again.';
         }
 
         setResult({
@@ -165,9 +218,56 @@ export default function MassUpdateDialog({
           },
         });
 
-        console.error("Mass update failed:", error);
+        console.error('Mass update failed:', error);
       }
     });
+  };
+
+  const startMassUpdate = async () => {
+    if (!selectedEmployee) {
+      toast.error('Please select an employee');
+      return;
+    }
+
+    try {
+      const selectedEmployeeData = employees.find(
+        (emp) => emp.id === selectedEmployee,
+      );
+      const employeeCode = selectedEmployeeData?.code || selectedEmployee;
+
+      const response = await fetch('/api/jobs/start-mass-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filters,
+          field,
+          value: employeeCode.trim(),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        if (result.jobId) {
+          setActiveJob({
+            jobId: result.jobId,
+            progress: 0,
+            status: 'PENDING',
+            totalItems: 0,
+            processedItems: 0,
+          });
+          toast.info('Job started! You can monitor progress below.');
+        } else {
+          toast('success', result.message);
+          setSelectedEmployee('');
+        }
+      } else {
+        toast.error(result.message);
+      }
+    } catch (error) {
+      console.error('Failed to start mass update:', error);
+      toast.error('Failed to start mass update. Please try again.');
+    }
   };
 
   const getStatusIcon = () => {
@@ -179,11 +279,11 @@ export default function MassUpdateDialog({
       return <CheckCircle className="h-5 w-5 text-green-500" />;
     } else {
       switch (result.details?.errorType) {
-        case "validation":
+        case 'validation':
           return <AlertCircle className="h-5 w-5 text-amber-500" />;
-        case "zoho":
-        case "network":
-        case "database":
+        case 'zoho':
+        case 'network':
+        case 'database':
           return <XCircle className="h-5 w-5 text-red-500" />;
         default:
           return <XCircle className="h-5 w-5 text-red-500" />;
@@ -192,21 +292,21 @@ export default function MassUpdateDialog({
   };
 
   const getStatusColor = () => {
-    if (isPending) return "text-blue-600 bg-blue-50 border-blue-200";
-    if (!result) return "";
+    if (isPending) return 'text-blue-600 bg-blue-50 border-blue-200';
+    if (!result) return '';
 
     if (result.success) {
-      return "text-green-600 bg-green-50 border-green-200";
+      return 'text-green-600 bg-green-50 border-green-200';
     } else {
       switch (result.details?.errorType) {
-        case "validation":
-          return "text-amber-600 bg-amber-50 border-amber-200";
-        case "zoho":
-        case "network":
-        case "database":
-          return "text-red-600 bg-red-50 border-red-200";
+        case 'validation':
+          return 'text-amber-600 bg-amber-50 border-amber-200';
+        case 'zoho':
+        case 'network':
+        case 'database':
+          return 'text-red-600 bg-red-50 border-red-200';
         default:
-          return "text-red-600 bg-red-50 border-red-200";
+          return 'text-red-600 bg-red-50 border-red-200';
       }
     }
   };
@@ -214,23 +314,23 @@ export default function MassUpdateDialog({
   const handleClose = () => {
     setOpen(false);
     setResult(null);
-    setSelectedEmployee("");
+    setSelectedEmployee('');
   };
 
   const getFilterSummary = () => {
     const activeFilters = Object.entries(filters).filter(([_, value]) => value);
-    if (activeFilters.length === 0) return "No filters applied";
+    if (activeFilters.length === 0) return 'No filters applied';
 
-    return activeFilters.map(([key, value]) => `${key}: ${value}`).join(", ");
+    return activeFilters.map(([key, value]) => `${key}: ${value}`).join(', ');
   };
 
   const getSelectedEmployeeDisplay = () => {
     const employee = employees.find((emp) => emp.id === selectedEmployee);
-    if (!employee) return "Select an employee...";
-    return `${employee.code}${employee.name ? ` - ${employee.name}` : ""}`;
+    if (!employee) return 'Select an employee...';
+    return `${employee.code}${employee.name ? ` - ${employee.name}` : ''}`;
   };
   const employeeLabel = (emp?: Employee) =>
-    emp ? `${emp.code}${emp.name ? ` - ${emp.name}` : ""}` : "";
+    emp ? `${emp.code}${emp.name ? ` - ${emp.name}` : ''}` : '';
   return (
     <>
       <Button
@@ -292,8 +392,8 @@ export default function MassUpdateDialog({
                       <SelectValue
                         placeholder={
                           loadingEmployees
-                            ? "Loading employees…"
-                            : "Select an employee…"
+                            ? 'Loading employees…'
+                            : 'Select an employee…'
                         }
                       />
                     </SelectTrigger>
@@ -331,8 +431,8 @@ export default function MassUpdateDialog({
                       <div>
                         <p className="font-medium">Updating invoices...</p>
                         <p className="text-sm opacity-75 mt-1">
-                          Assigning items to{" "}
-                          {getSelectedEmployeeDisplay().split(" - ")[0]} and
+                          Assigning items to{' '}
+                          {getSelectedEmployeeDisplay().split(' - ')[0]} and
                           syncing with Zoho
                         </p>
                       </div>
@@ -361,12 +461,12 @@ export default function MassUpdateDialog({
                 onClick={handleClose}
                 disabled={isPending}
               >
-                {result?.success ? "Close" : "Cancel"}
+                {result?.success ? 'Close' : 'Cancel'}
               </Button>
 
               {!result?.success && (
                 <Button
-                  onClick={onSubmit}
+                  onClick={startMassUpdate}
                   disabled={isPending || !selectedEmployee || loadingEmployees}
                   className="min-w-[100px]"
                 >
@@ -376,7 +476,7 @@ export default function MassUpdateDialog({
                       Updating...
                     </>
                   ) : (
-                    "Update"
+                    'Update'
                   )}
                 </Button>
               )}

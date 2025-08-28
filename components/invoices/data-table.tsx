@@ -1,8 +1,6 @@
-"use client";
+'use client';
 
-import type React from "react";
-
-import { Fragment, useMemo } from "react";
+import { Fragment, useMemo } from 'react';
 import {
   type ColumnDef,
   flexRender,
@@ -12,9 +10,9 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
-} from "@tanstack/react-table";
-import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "@/components/ui/button";
+} from '@tanstack/react-table';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -22,11 +20,11 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { useRouter } from "next/navigation";
-import type { UIInvoice } from "@/app/invoices/page";
-import { invoiceColumns } from "./columns";
-import { currencyFormat } from "@/lib/format";
+} from '@/components/ui/table';
+import { useRouter } from 'next/navigation';
+import type { UIInvoice } from '@/app/invoices/page';
+import { invoiceColumns } from './columns';
+import { currencyFormat } from '@/lib/format';
 
 export function InvoicesTable(props: {
   initialData: UIInvoice[];
@@ -36,6 +34,7 @@ export function InvoicesTable(props: {
   q: string;
 }) {
   const { initialData, page, pageSize, total, q } = props;
+
   const router = useRouter();
 
   const columns = useMemo<ColumnDef<UIInvoice>[]>(() => invoiceColumns, []);
@@ -50,7 +49,7 @@ export function InvoicesTable(props: {
     getExpandedRowModel: getExpandedRowModel(),
     getRowCanExpand: () => true,
     initialState: {
-      sorting: [{ id: "dateISO", desc: true }],
+      sorting: [{ id: 'dateISO', desc: true }],
       pagination: { pageIndex: 0, pageSize },
     },
     manualPagination: true,
@@ -59,10 +58,10 @@ export function InvoicesTable(props: {
 
   const handlePageChange = (next: number) => {
     const url = new URL(window.location.href);
-    url.searchParams.set("page", String(next));
-    url.searchParams.set("pageSize", String(pageSize));
-    if (q) url.searchParams.set("q", q);
-    else url.searchParams.delete("q");
+    url.searchParams.set('page', String(next));
+    url.searchParams.set('pageSize', String(pageSize));
+    if (q) url.searchParams.set('q', q);
+    else url.searchParams.delete('q');
     router.push(url.toString());
   };
 
@@ -90,14 +89,14 @@ export function InvoicesTable(props: {
             {table.getRowModel().rows.map((row) => (
               <Fragment key={row.id}>
                 <TableRow
-                  data-state={row.getIsSelected() ? "selected" : undefined}
+                  data-state={row.getIsSelected() ? 'selected' : undefined}
                   className="hover:bg-muted/50 transition-colors"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} className="align-top py-4">
                       {flexRender(
                         cell.column.columnDef.cell,
-                        cell.getContext()
+                        cell.getContext(),
                       )}
                     </TableCell>
                   ))}
@@ -109,9 +108,9 @@ export function InvoicesTable(props: {
                       {row.getIsExpanded() && (
                         <motion.div
                           initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: "auto", opacity: 1 }}
+                          animate={{ height: 'auto', opacity: 1 }}
                           exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2, ease: "easeInOut" }}
+                          transition={{ duration: 0.2, ease: 'easeInOut' }}
                           className="px-6 pb-6"
                         >
                           <ItemsSubTable invoice={row.original} />
@@ -129,7 +128,7 @@ export function InvoicesTable(props: {
       {/* Pager */}
       <div className="flex items-center justify-between px-6 py-4 border-t bg-muted/20">
         <div className="text-sm text-muted-foreground">
-          Showing page {page} of {Math.ceil(total / pageSize)} •{" "}
+          Showing page {page} of {Math.ceil(total / pageSize)} •{' '}
           {total.toLocaleString()} total invoices
         </div>
         <div className="flex items-center gap-2">
@@ -238,13 +237,13 @@ function ItemsSubTable({ invoice }: { invoice: UIInvoice }) {
                     className="max-w-[280px] truncate font-medium px-6 py-3"
                     title={it.productName ?? undefined}
                   >
-                    {it.productName ?? "—"}
+                    {it.productName ?? '—'}
                   </TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground px-4 py-3">
-                    {it.productCode ?? "—"}
+                    {it.productCode ?? '—'}
                   </TableCell>
                   <TableCell className="text-right px-4 py-3">
-                    {it.quantity ?? "—"}
+                    {it.quantity ?? '—'}
                   </TableCell>
                   <TableCell className="text-right font-mono text-sm px-4 py-3">
                     {currencyFormat(it.listPrice)}
@@ -262,7 +261,7 @@ function ItemsSubTable({ invoice }: { invoice: UIInvoice }) {
                     {it.employeeId ?? "—"}
                   </TableCell> */}
                   <TableCell className="font-mono text-xs text-muted-foreground px-4 py-3">
-                    {it.employeeCode ?? "—"}
+                    {it.employeeCode ?? '—'}
                   </TableCell>
                   {/* <TableCell className="font-mono text-xs text-muted-foreground px-6 py-3">
                     {it.zohoRowId}

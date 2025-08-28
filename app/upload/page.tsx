@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -10,20 +10,20 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from '@/components/ui/table';
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion";
-import axios from "axios";
-import { getCookieValue } from "@/lib/cookies";
-import { toast } from "sonner";
-import type { InvoiceRow, ValidatedInvoice } from "@/types/tedis/invoices";
-import { Loader2 } from "lucide-react";
-import { getCurrentCounter, updateCounter } from "@/lib/tedis/invoiceCounter";
-import { groupConsecutively, parseInvoiceExcel } from "@/lib/invoices";
+} from '@/components/ui/accordion';
+import axios from 'axios';
+import { getCookieValue } from '@/lib/cookies';
+import { toast } from 'sonner';
+import type { InvoiceRow, ValidatedInvoice } from '@/types/tedis/invoices';
+import { Loader2 } from 'lucide-react';
+import { getCurrentCounter, updateCounter } from '@/lib/tedis/invoiceCounter';
+import { groupConsecutively, parseInvoiceExcel } from '@/lib/invoices';
 
 type UploadProgress = {
   total: number;
@@ -56,29 +56,29 @@ export default function UploadPage() {
       setErrors([]);
       setUploadResults([]);
       setProgress(null);
-      toast.success("File loaded. Ready to validate.");
+      toast.success('File loaded. Ready to validate.');
     } catch (err) {
-      console.error("Excel parsing error:", err);
-      toast.error("Failed to parse the Excel file.");
+      console.error('Excel parsing error:', err);
+      toast.error('Failed to parse the Excel file.');
     }
   };
 
   const handleValidate = async () => {
-    const accessToken = getCookieValue("vcrm_access_token");
-    if (!accessToken) return toast.error("Missing VCRM token. Please log in.");
+    const accessToken = getCookieValue('vcrm_access_token');
+    if (!accessToken) return toast.error('Missing VCRM token. Please log in.');
 
     setValidating(true);
     try {
-      const res = await axios.post("/api/tedis/invoices/validate", {
+      const res = await axios.post('/api/tedis/invoices/validate', {
         rows: data,
         accessToken,
       });
       setValidRows(res.data.validInvoices);
       setErrors(res.data.errors);
-      toast.success("Validation complete.");
+      toast.success('Validation complete.');
     } catch (err) {
       console.error(err);
-      toast.error("Validation failed.");
+      toast.error('Validation failed.');
     } finally {
       setValidating(false);
     }
@@ -102,18 +102,17 @@ export default function UploadPage() {
 
     for (let i = 0; i < groups.length; i++) {
       try {
-        const res = await axios.post("/api/tedis/invoices/upload-group", {
+        const res = await axios.post('/api/tedis/invoices/upload-group', {
           group: groups[i],
-          currentItemId: currentId,
         });
         results.push({ subject: res.data.subject, success: true });
         successes++;
       } catch (err) {
         const message = axios.isAxiosError(err)
           ? err.response?.data?.error || err.message
-          : "Unknown error";
+          : 'Unknown error';
         results.push({
-          subject: groups[i]?.[0]?.subject || "undefined",
+          subject: groups[i]?.[0]?.subject || 'undefined',
           success: false,
           error: message,
         });
@@ -158,10 +157,10 @@ export default function UploadPage() {
         <div className="flex items-center gap-4 mb-4">
           <Button onClick={handleValidate} disabled={validating}>
             {validating && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-            {validating ? "Validating..." : "Validate"}
+            {validating ? 'Validating...' : 'Validate'}
           </Button>
           <span className="text-sm text-muted-foreground">
-            📄 {data.length} row{data.length !== 1 ? "s" : ""} loaded
+            📄 {data.length} row{data.length !== 1 ? 's' : ''} loaded
           </span>
         </div>
       )}
@@ -183,8 +182,8 @@ export default function UploadPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {validRows.map((row, i) => (
-                      <TableRow key={i}>
+                    {validRows.map((row) => (
+                      <TableRow key={row.id}>
                         {headers.map((h) => (
                           <TableCell key={h}>{row.original?.[h]}</TableCell>
                         ))}
@@ -210,8 +209,8 @@ export default function UploadPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {errors.map((e, i) => (
-                      <TableRow key={i}>
+                    {errors.map((e) => (
+                      <TableRow key={e.Row}>
                         <TableCell>{e.Row}</TableCell>
                         <TableCell>{e.Error}</TableCell>
                       </TableRow>
@@ -230,7 +229,7 @@ export default function UploadPage() {
             <h2 className="text-lg font-semibold">Upload to VCRM</h2>
             <Button onClick={handleUpload} disabled={uploading}>
               {uploading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              {uploading ? "Uploading..." : "Upload"}
+              {uploading ? 'Uploading...' : 'Upload'}
             </Button>
           </div>
 
@@ -269,13 +268,13 @@ export default function UploadPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {uploadResults.map((r, i) => (
-                  <TableRow key={i}>
+                {uploadResults.map((r) => (
+                  <TableRow key={r.subject}>
                     <TableCell>{r.subject}</TableCell>
                     <TableCell>
-                      {r.success ? "✅ Success" : "❌ Failed"}
+                      {r.success ? '✅ Success' : '❌ Failed'}
                     </TableCell>
-                    <TableCell>{r.error || "-"}</TableCell>
+                    <TableCell>{r.error || '-'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

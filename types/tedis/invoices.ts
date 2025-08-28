@@ -6,6 +6,7 @@ export type ValidationResult = {
 };
 
 export type ValidatedInvoice = {
+  id: string;
   subject: string;
   invoiceDate: string;
   accountId: string;

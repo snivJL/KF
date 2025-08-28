@@ -142,3 +142,36 @@ model InvoiceItem {
   @@index([employeeId])
   @@index([employeeZohoId])
 }
+
+model Job {
+  id             String    @id @default(cuid())
+  type           String // 'MASS_UPDATE_INVOICES'
+  status         JobStatus @default(PENDING)
+  progress       Int       @default(0) // 0-100
+  totalItems     Int       @default(0)
+  processedItems Int       @default(0)
+  failedItems    Int       @default(0)
+
+  // Job data
+  parameters Json // Store the original parameters
+  result     Json? // Store final result
+  error      String? // Store error message if failed
+  logs       String[] @default([]) // Store progress logs
+
+  // Metadata
+  userId      String? // Optional: track who started the job
+  createdAt   DateTime  @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  @@map("jobs")
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}

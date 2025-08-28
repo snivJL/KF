@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { cookies } from 'next/headers';
 
 /**
  * Refresh the access token using the stored refresh token.
@@ -6,54 +6,54 @@ import { cookies } from "next/headers";
  */
 export async function refreshAccessTokenServer(): Promise<string | null> {
   const cookieStore = await cookies();
-  console.log(cookieStore.get("vcrm_refresh_token"));
-  const refreshToken = cookieStore.get("vcrm_refresh_token")?.value;
+  console.log(cookieStore.get('vcrm_refresh_token'));
+  const refreshToken = cookieStore.get('vcrm_refresh_token')?.value;
 
   if (!refreshToken) {
-    console.error("Missing refresh token cookie");
+    console.error('Missing refresh token cookie');
     return null;
   }
 
   const tokenUrl = `${process.env.ACCOUNT_URL!}/token`;
   const params = new URLSearchParams({
-    grant_type: "refresh_token",
+    grant_type: 'refresh_token',
     client_id: process.env.ZOHO_CLIENT_ID!,
     client_secret: process.env.ZOHO_CLIENT_SECRET!,
     refresh_token: refreshToken,
   });
 
   const tokenRes = await fetch(tokenUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: params.toString(),
   });
 
   const tokenData = await tokenRes.json();
   if (!tokenRes.ok || !tokenData.access_token) {
-    console.error("Failed to refresh access token", tokenData);
+    console.error('Failed to refresh access token', tokenData);
     return null;
   }
 
   const { access_token, expires_in, expires_in_sec } = tokenData;
   const expirationTimestamp = Date.now() + expires_in;
   console.log(
-    "New access token received, expires in:",
+    'New access token received, expires in:',
     expires_in_sec,
-    "seconds",
-    tokenData
+    'seconds',
+    tokenData,
   );
-  cookieStore.set("vcrm_access_token", access_token, {
-    path: "/",
+  cookieStore.set('vcrm_access_token', access_token, {
+    path: '/',
     secure: true,
-    sameSite: "lax",
+    sameSite: 'lax',
     httpOnly: false,
     maxAge: expires_in,
   });
 
-  cookieStore.set("vcrm_access_token_expires", expirationTimestamp.toString(), {
-    path: "/",
+  cookieStore.set('vcrm_access_token_expires', expirationTimestamp.toString(), {
+    path: '/',
     secure: true,
-    sameSite: "lax",
+    sameSite: 'lax',
     httpOnly: false,
     maxAge: expires_in,
   });
@@ -66,12 +66,12 @@ export async function refreshAccessTokenServer(): Promise<string | null> {
  */
 export async function getValidAccessTokenFromServer(): Promise<string | null> {
   const cookieStore = await cookies();
-  const expires = cookieStore.get("vcrm_access_token_expires")?.value;
-  const token = cookieStore.get("vcrm_access_token")?.value;
+  const expires = cookieStore.get('vcrm_access_token_expires')?.value;
+  const token = cookieStore.get('vcrm_access_token')?.value;
 
-  if (token && expires && Date.now() < parseInt(expires!, 10) - 60_000) {
+  if (token && expires && Date.now() < Number.parseInt(expires, 10) - 60_000) {
     return token;
   }
-  console.log("Token expired, refreshing...");
+  console.log('Token expired, refreshing...');
   return await refreshAccessTokenServer();
 }

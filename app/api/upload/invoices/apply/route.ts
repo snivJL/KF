@@ -16,36 +16,15 @@ import {
   clearSubform,
   updateInvoice,
   deleteInvoice,
+  getInvoices,
+  findInvoiceIdByExternalKey,
 } from '@/lib/zoho/invoices.api';
 import { z } from 'zod';
+import { asyncPool } from '@/lib/zoho/api';
+import { parseAxiosError } from '@/lib/errors';
 
 const SHEET_NAME = 'Template Invoice Creation ';
 const CONCURRENCY = 6;
-
-async function asyncPool<I, O>(
-  limit: number,
-  items: I[],
-  worker: (item: I) => Promise<O>,
-): Promise<O[]> {
-  const ret: O[] = [];
-  const executing: Promise<void>[] = [];
-  for (const item of items) {
-    const p = (async () => {
-      ret.push(await worker(item));
-    })();
-    executing.push(
-      p.then(() => {
-        const idx = executing.indexOf(p as unknown as Promise<void>);
-        if (idx >= 0) executing.splice(idx, 1);
-      }),
-    );
-    if (executing.length >= limit) {
-      await Promise.race(executing);
-    }
-  }
-  await Promise.all(executing);
-  return ret;
-}
 
 type RowPick = {
   invoiceDId: string;
@@ -60,8 +39,9 @@ type RowPick = {
 type ResultItem = {
   externalKey: string;
   crmId?: string;
-  status: 'created' | 'updated' | 'deleted' | 'voided' | 'skipped';
+  status: 'created' | 'updated' | 'deleted' | 'voided' | 'skipped' | 'error';
   error?: string;
+  details?: Record<string, unknown>;
 };
 type InvoiceGroup = {
   ym: string;
@@ -138,9 +118,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Group rows by external key
+    // Group rows by external key with consecutive grouping
     const groups = new Map<string, InvoiceGroup>();
-    for (const r of dataRows) {
+    let currentGroup: InvoiceGroup | null = null;
+
+    for (let i = 0; i < dataRows.length; i++) {
+      const r = dataRows[i];
       const invoiceDId = String(r[idx('Invoice D. ID')] ?? '').trim();
       const invoiceDate = isoFromExcelCell(r[idx('Invoice Date')]);
       const date = parseISO(invoiceDate);
@@ -149,7 +132,6 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      const { ym, key } = makeExternalKey(invoiceDId, invoiceDate);
       const accountCode = String(r[idx('Account Code')] ?? '').trim();
       const row: RowPick & { raw: unknown[] } = {
         invoiceDId,
@@ -157,13 +139,27 @@ export async function POST(req: NextRequest) {
         accountCode,
         employeeCode: String(r[idx('Employee Code')] ?? '').trim(),
         productCode: String(r[idx('Product Code')] ?? '').trim(),
-        quantity: tryParseNumber(r[idx('Quantity')]) ?? 0,
-        unitPrice: tryParseNumber(r[idx('List Price per unit (-VAT)')]) ?? 0,
-        itemDiscount: tryParseNumber(r[idx('Total Discount on item')]) ?? 0,
+        quantity: normalizeNumber(tryParseNumber(r[idx('Quantity')]) ?? 0, 2),
+        unitPrice: normalizeNumber(
+          tryParseNumber(r[idx('List Price per unit (-VAT)')]) ?? 0,
+          2,
+        ),
+        itemDiscount: normalizeNumber(
+          tryParseNumber(r[idx('Total Discount on item')]) ?? 0,
+          2,
+        ),
         raw: r,
       };
-      if (!groups.has(key)) {
-        groups.set(key, {
+
+      // New group if: no current group, different invoiceDId, or different accountCode
+      const shouldStartNewGroup =
+        !currentGroup || currentGroup.invoiceDId !== invoiceDId;
+      if (shouldStartNewGroup) {
+        const { ym, key: baseKey } = makeExternalKey(invoiceDId, invoiceDate);
+        // Include accountCode to guarantee uniqueness across accounts
+        const key = `${baseKey}:${accountCode}`;
+
+        currentGroup = {
           ym,
           externalKey: key,
           invoiceDId,
@@ -171,11 +167,12 @@ export async function POST(req: NextRequest) {
           accountCode,
           rows: [],
           contentHash: '', // fill later
-        });
+        };
+        groups.set(key, currentGroup);
       }
-      groups.get(key)?.rows.push(row);
-    }
 
+      currentGroup?.rows.push(row);
+    }
     // Compute hash for each group using ALL columns (normalized)
     for (const g of groups.values()) {
       const groupRows = g.rows.map((rr) => rr.raw);
@@ -190,10 +187,7 @@ export async function POST(req: NextRequest) {
     });
 
     const linkMap = new Map(links.map((l) => [l.externalKey, l]));
-    console.log('linkMap', [...linkMap]);
     const inFile = new Set(invoices.map((i) => i.externalKey));
-    console.log('inFile', [...inFile]);
-
     const toCreate = invoices.filter((i) => !linkMap.has(i.externalKey));
     const toUpdate = invoices.filter(
       (i) =>
@@ -201,9 +195,7 @@ export async function POST(req: NextRequest) {
         linkMap.get(i.externalKey)?.contentHash !== i.contentHash,
     );
     const toRemove = links.filter((l) => !inFile.has(l.externalKey));
-    // console.log('Invoices', JSON.stringify(invoices, null, 2));
-    // console.log('links', JSON.stringify(links, null, 2));
-    // console.log('links', JSON.stringify(links, null, 2));
+
     console.log(
       'To create: ',
       toCreate.length,
@@ -212,7 +204,6 @@ export async function POST(req: NextRequest) {
       'To remove: ',
       toRemove.length,
     );
-
     const accountCodes = Array.from(
       new Set(invoices.map((i) => i.accountCode)),
     );
@@ -284,7 +275,7 @@ export async function POST(req: NextRequest) {
         const item: Record<string, unknown> = {
           Product_Name: { id: prod.id },
           Product_Code: r.productCode,
-          Quantity: normalizeNumber(r.quantity, 3),
+          Quantity: normalizeNumber(r.quantity, 2),
           List_Price: normalizeNumber(r.unitPrice, 2),
           Discount: normalizeNumber(r.itemDiscount, 2),
           Assigned_Employee: { id: emp.id },
@@ -308,29 +299,60 @@ export async function POST(req: NextRequest) {
     const removed: ResultItem[] = [];
     const errors: ResultItem[] = [];
 
-    // CREATE
+    // CREATE (or update if CRM already has it)
     await asyncPool(CONCURRENCY, toCreate, async (g) => {
       try {
         const record = payloadForGroup(g);
-        const crmId = await upsertInvoiceByExternalKey(token, record);
-        await prisma.invoiceLink.upsert({
-          where: {
+        const existingId = await findInvoiceIdByExternalKey(
+          token,
+          g.externalKey,
+        );
+        if (existingId) {
+          await clearSubform(token, existingId);
+          await updateInvoice(token, existingId, { ...record, id: existingId });
+          await prisma.invoiceLink.upsert({
+            where: { externalKey: g.externalKey },
+            create: {
+              ym: g.ym,
+              externalKey: g.externalKey,
+              crmId: existingId,
+              contentHash: g.contentHash,
+            },
+            update: { crmId: existingId, contentHash: g.contentHash, ym: g.ym },
+          });
+          updated.push({
             externalKey: g.externalKey,
-          },
-          create: {
-            ym: g.ym,
+            crmId: existingId,
+            status: 'updated',
+          });
+        } else {
+          const crmId = await upsertInvoiceByExternalKey(token, record);
+          await prisma.invoiceLink.upsert({
+            where: {
+              externalKey: g.externalKey,
+            },
+            create: {
+              ym: g.ym,
+              externalKey: g.externalKey,
+              crmId,
+              contentHash: g.contentHash,
+            },
+            update: { crmId, contentHash: g.contentHash, ym: g.ym },
+          });
+          created.push({
             externalKey: g.externalKey,
             crmId,
-            contentHash: g.contentHash,
-          },
-          update: { crmId, contentHash: g.contentHash, ym: g.ym },
-        });
-        created.push({ externalKey: g.externalKey, crmId, status: 'created' });
+            status: 'created',
+          });
+        }
       } catch (e: unknown) {
+        const { message, details } = parseAxiosError(e);
+
         errors.push({
           externalKey: g.externalKey,
           status: 'skipped',
-          error: (e as Error).message,
+          error: message,
+          details,
         });
       }
     });
@@ -344,7 +366,6 @@ export async function POST(req: NextRequest) {
       }
       try {
         const record = payloadForGroup(g);
-        console.log('RECORD', record);
         // Clear subform first (safe replace)return
         await clearSubform(token, link.crmId);
 
@@ -359,10 +380,12 @@ export async function POST(req: NextRequest) {
           status: 'updated',
         });
       } catch (e: unknown) {
+        const { message, details } = parseAxiosError(e);
         errors.push({
           externalKey: g.externalKey,
           status: 'skipped',
-          error: (e as Error).message,
+          error: message,
+          details,
         });
       }
     });

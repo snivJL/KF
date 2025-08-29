@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -11,10 +11,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { toast } from "sonner";
-import { Loader2, RefreshCw } from "lucide-react";
-import { fetchWithAuth } from "@/lib/auth";
+} from '@/components/ui/table';
+import { toast } from 'sonner';
+import { Loader2, RefreshCw } from 'lucide-react';
+import { fetchWithAuth } from '@/lib/auth';
 
 type Employee = {
   id: string;
@@ -26,11 +26,11 @@ type Employee = {
 
 export function EmployeesTab() {
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(false);
 
   const fetchEmployees = async () => {
-    const res = await fetchWithAuth("/api/tedis/employees");
+    const res = await fetchWithAuth('/api/tedis/employees');
     const data = await res.json();
     setEmployees(data);
   };
@@ -38,11 +38,11 @@ export function EmployeesTab() {
   const handleSync = async () => {
     setLoading(true);
     try {
-      const res = await fetchWithAuth("/api/tedis/sync/employees", {
-        method: "POST",
+      const res = await fetchWithAuth('/api/tedis/sync/employees', {
+        method: 'POST',
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Unknown error");
+      if (!res.ok) throw new Error(data.error || 'Unknown error');
       toast.success(`✅ Synced ${data.synced} employees.`);
       fetchEmployees();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -60,7 +60,7 @@ export function EmployeesTab() {
   const filtered = employees.filter(
     (e) =>
       e.code.toLowerCase().includes(search.toLowerCase()) ||
-      (e.name?.toLowerCase().includes(search.toLowerCase()) ?? false)
+      (e.name?.toLowerCase().includes(search.toLowerCase()) ?? false),
   );
 
   return (
@@ -76,9 +76,9 @@ export function EmployeesTab() {
             </div>
             <Button onClick={handleSync} disabled={loading}>
               {loading ? (
-                <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                <Loader2 className="animate-spin size-4 mr-2" />
               ) : (
-                <RefreshCw className="h-4 w-4 mr-2" />
+                <RefreshCw className="size-4 mr-2" />
               )}
               Sync Employees
             </Button>

@@ -178,7 +178,7 @@ function ItemsSubTable({ invoice }: { invoice: UIInvoice }) {
           className="inline-flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors font-medium"
         >
           View details
-          <ExternalLink className="h-4 w-4" />
+          <ExternalLink className="size-4" />
         </Link> */}
       </div>
       <div className="overflow-x-auto">

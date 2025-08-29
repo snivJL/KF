@@ -17,7 +17,7 @@ import {
   updateInvoice,
   deleteInvoice,
 } from '@/lib/zoho/invoices.api';
-import z from 'zod';
+import { z } from 'zod';
 
 const SHEET_NAME = 'Template Invoice Creation ';
 const CONCURRENCY = 6;

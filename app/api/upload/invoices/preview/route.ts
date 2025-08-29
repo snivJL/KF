@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
 
 import { prisma } from '@/lib/prisma';
-import z from 'zod';
+import { z } from 'zod';
 import {
   type Invoice,
   invoiceHash,

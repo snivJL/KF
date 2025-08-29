@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { useEffect, useState } from 'react';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -9,12 +9,12 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
-import { Button } from "../ui/button";
-import { Loader2, RefreshCw } from "lucide-react";
-import { fetchWithAuth } from "@/lib/auth";
+} from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
+import { Button } from '../ui/button';
+import { Loader2, RefreshCw } from 'lucide-react';
+import { fetchWithAuth } from '@/lib/auth';
 
 export type Account = {
   id: string;
@@ -36,12 +36,12 @@ export type Account = {
 };
 export default function AccountsTab() {
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [search, setSearch] = useState("");
-  const [sortKey, setSortKey] = useState<keyof Account>("updatedAt");
+  const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState<keyof Account>('updatedAt');
   const [sortAsc, setSortAsc] = useState(false);
   const [loading, setLoading] = useState(false);
   const fetchAccounts = async () => {
-    const res = await fetchWithAuth("/api/tedis/accounts?take=100");
+    const res = await fetchWithAuth('/api/tedis/accounts?take=100');
     const data = await res.json();
     setAccounts(data);
   };
@@ -52,11 +52,11 @@ export default function AccountsTab() {
   const handleSync = async () => {
     setLoading(true);
     try {
-      const res = await fetchWithAuth("/api/tedis/sync/accounts", {
-        method: "POST",
+      const res = await fetchWithAuth('/api/tedis/sync/accounts', {
+        method: 'POST',
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Unknown error");
+      if (!res.ok) throw new Error(data.error || 'Unknown error');
       toast.success(`Synced ${data.synced} accounts.`);
       fetchAccounts();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -71,7 +71,7 @@ export default function AccountsTab() {
     .filter(
       (a) =>
         a.name.toLowerCase().includes(search.toLowerCase()) ||
-        a.code.toLowerCase().includes(search.toLowerCase())
+        a.code.toLowerCase().includes(search.toLowerCase()),
     )
     .sort((a, b) => {
       const valA = a[sortKey];
@@ -92,7 +92,7 @@ export default function AccountsTab() {
 
   return (
     <>
-      {" "}
+      {' '}
       <Card className="mb-6">
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
@@ -104,9 +104,9 @@ export default function AccountsTab() {
             </div>
             <Button onClick={handleSync} disabled={loading}>
               {loading ? (
-                <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                <Loader2 className="animate-spin size-4 mr-2" />
               ) : (
-                <RefreshCw className="h-4 w-4 mr-2" />
+                <RefreshCw className="size-4 mr-2" />
               )}
               Sync Accounts
             </Button>
@@ -133,60 +133,60 @@ export default function AccountsTab() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead onClick={() => handleSort("code")}>
-                    Code {sortKey === "code" && (sortAsc ? "▲" : "▼")}
+                  <TableHead onClick={() => handleSort('code')}>
+                    Code {sortKey === 'code' && (sortAsc ? '▲' : '▼')}
                   </TableHead>
-                  <TableHead onClick={() => handleSort("name")}>
-                    Name {sortKey === "name" && (sortAsc ? "▲" : "▼")}
+                  <TableHead onClick={() => handleSort('name')}>
+                    Name {sortKey === 'name' && (sortAsc ? '▲' : '▼')}
                   </TableHead>
-                  <TableHead onClick={() => handleSort("shippingStreet")}>
-                    Street{" "}
-                    {sortKey === "shippingStreet" && (sortAsc ? "▲" : "▼")}
+                  <TableHead onClick={() => handleSort('shippingStreet')}>
+                    Street{' '}
+                    {sortKey === 'shippingStreet' && (sortAsc ? '▲' : '▼')}
                   </TableHead>
-                  <TableHead onClick={() => handleSort("shippingCity")}>
-                    City {sortKey === "shippingCity" && (sortAsc ? "▲" : "▼")}
+                  <TableHead onClick={() => handleSort('shippingCity')}>
+                    City {sortKey === 'shippingCity' && (sortAsc ? '▲' : '▼')}
                   </TableHead>
-                  <TableHead onClick={() => handleSort("shippingProvince")}>
-                    Province{" "}
-                    {sortKey === "shippingProvince" && (sortAsc ? "▲" : "▼")}
+                  <TableHead onClick={() => handleSort('shippingProvince')}>
+                    Province{' '}
+                    {sortKey === 'shippingProvince' && (sortAsc ? '▲' : '▼')}
                   </TableHead>
-                  <TableHead onClick={() => handleSort("shippingCode")}>
-                    Postal Code{" "}
-                    {sortKey === "shippingCode" && (sortAsc ? "▲" : "▼")}
+                  <TableHead onClick={() => handleSort('shippingCode')}>
+                    Postal Code{' '}
+                    {sortKey === 'shippingCode' && (sortAsc ? '▲' : '▼')}
                   </TableHead>
-                  <TableHead onClick={() => handleSort("shippingCountry")}>
-                    Country{" "}
-                    {sortKey === "shippingCountry" && (sortAsc ? "▲" : "▼")}
+                  <TableHead onClick={() => handleSort('shippingCountry')}>
+                    Country{' '}
+                    {sortKey === 'shippingCountry' && (sortAsc ? '▲' : '▼')}
                   </TableHead>
-                  <TableHead onClick={() => handleSort("latitude")}>
-                    Latitude {sortKey === "latitude" && (sortAsc ? "▲" : "▼")}
+                  <TableHead onClick={() => handleSort('latitude')}>
+                    Latitude {sortKey === 'latitude' && (sortAsc ? '▲' : '▼')}
                   </TableHead>
-                  <TableHead onClick={() => handleSort("longitude")}>
-                    Longitude {sortKey === "longitude" && (sortAsc ? "▲" : "▼")}
+                  <TableHead onClick={() => handleSort('longitude')}>
+                    Longitude {sortKey === 'longitude' && (sortAsc ? '▲' : '▼')}
                   </TableHead>
-                  <TableHead onClick={() => handleSort("geocodeAttempts")}>
-                    Geocode Attempts{" "}
-                    {sortKey === "geocodeAttempts" && (sortAsc ? "▲" : "▼")}
+                  <TableHead onClick={() => handleSort('geocodeAttempts')}>
+                    Geocode Attempts{' '}
+                    {sortKey === 'geocodeAttempts' && (sortAsc ? '▲' : '▼')}
                   </TableHead>
-                  <TableHead onClick={() => handleSort("lastGeocodeError")}>
-                    Last Error{" "}
-                    {sortKey === "lastGeocodeError" && (sortAsc ? "▲" : "▼")}
+                  <TableHead onClick={() => handleSort('lastGeocodeError')}>
+                    Last Error{' '}
+                    {sortKey === 'lastGeocodeError' && (sortAsc ? '▲' : '▼')}
                   </TableHead>
-                  <TableHead onClick={() => handleSort("geocodeConfidence")}>
-                    Accuracy{" "}
-                    {sortKey === "geocodeConfidence" && (sortAsc ? "▲" : "▼")}
+                  <TableHead onClick={() => handleSort('geocodeConfidence')}>
+                    Accuracy{' '}
+                    {sortKey === 'geocodeConfidence' && (sortAsc ? '▲' : '▼')}
                   </TableHead>
-                  <TableHead onClick={() => handleSort("geocodePrecision")}>
-                    Precision{" "}
-                    {sortKey === "geocodePrecision" && (sortAsc ? "▲" : "▼")}
+                  <TableHead onClick={() => handleSort('geocodePrecision')}>
+                    Precision{' '}
+                    {sortKey === 'geocodePrecision' && (sortAsc ? '▲' : '▼')}
                   </TableHead>
-                  <TableHead onClick={() => handleSort("geocodeRadius")}>
-                    Radius (m){" "}
-                    {sortKey === "geocodeRadius" && (sortAsc ? "▲" : "▼")}
+                  <TableHead onClick={() => handleSort('geocodeRadius')}>
+                    Radius (m){' '}
+                    {sortKey === 'geocodeRadius' && (sortAsc ? '▲' : '▼')}
                   </TableHead>
-                  <TableHead onClick={() => handleSort("updatedAt")}>
-                    Last Synced{" "}
-                    {sortKey === "updatedAt" && (sortAsc ? "▲" : "▼")}
+                  <TableHead onClick={() => handleSort('updatedAt')}>
+                    Last Synced{' '}
+                    {sortKey === 'updatedAt' && (sortAsc ? '▲' : '▼')}
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -201,12 +201,12 @@ export default function AccountsTab() {
                     <TableCell>{acc.shippingCode}</TableCell>
                     <TableCell>{acc.shippingCountry}</TableCell>
                     <TableCell>
-                      {acc.latitude !== null ? acc.latitude.toFixed(6) : "N/A"}
+                      {acc.latitude !== null ? acc.latitude.toFixed(6) : 'N/A'}
                     </TableCell>
                     <TableCell>
                       {acc.longitude !== null
                         ? acc.longitude.toFixed(6)
-                        : "N/A"}
+                        : 'N/A'}
                     </TableCell>
                     <TableCell>{acc.geocodeAttempts} </TableCell>
                     <TableCell>
@@ -219,13 +219,13 @@ export default function AccountsTab() {
                     <TableCell>
                       {acc.geocodeConfidence !== null
                         ? `${(acc.geocodeConfidence * 100).toFixed(0)}%`
-                        : "N/A"}
+                        : 'N/A'}
                     </TableCell>
-                    <TableCell>{acc.geocodePrecision || "N/A"}</TableCell>
+                    <TableCell>{acc.geocodePrecision || 'N/A'}</TableCell>
                     <TableCell>
                       {acc.geocodeRadius !== null
                         ? `${acc.geocodeRadius} m`
-                        : "N/A"}
+                        : 'N/A'}
                     </TableCell>
                     <TableCell>
                       {new Date(acc.updatedAt).toLocaleString()}

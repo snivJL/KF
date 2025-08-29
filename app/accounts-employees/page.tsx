@@ -1,21 +1,21 @@
-"use client";
+'use client';
 
-import { useState, type ChangeEvent } from "react";
-import { Button } from "@/components/ui/button";
+import { useState, type ChangeEvent } from 'react';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardHeader,
   CardTitle,
   CardDescription,
   CardContent,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Loader2 } from "lucide-react";
-import * as xlsx from "xlsx";
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Loader2 } from 'lucide-react';
+import * as xlsx from 'xlsx';
 import {
   useAccountsEmployeesImport,
   type MappingRow,
-} from "@/hooks/use-account-employees-import";
+} from '@/hooks/use-account-employees-import';
 
 export default function AccountsEmployeesImportPage() {
   const [rows, setRows] = useState<MappingRow[]>([]);
@@ -32,19 +32,19 @@ export default function AccountsEmployeesImportPage() {
     if (!file) return;
     try {
       const buffer = await file.arrayBuffer();
-      const workbook = xlsx.read(buffer, { type: "array" });
+      const workbook = xlsx.read(buffer, { type: 'array' });
       const sheetName = workbook.SheetNames[0] as string;
       const worksheet = workbook.Sheets[sheetName];
       const data = xlsx.utils.sheet_to_json<Record<string, unknown>>(
         worksheet!,
-        { defval: "" }
+        { defval: '' },
       );
-      console.log("DATA", data[0]);
+      console.log('DATA', data[0]);
       // Map rows to MappingRow
       const parsed: MappingRow[] = data.map((row) => {
-        const repCode = String(row["Rep Code"] || row["repCode"] || "").trim();
+        const repCode = String(row['Rep Code'] || row['repCode'] || '').trim();
         const accountCode = String(
-          row["Account Code"] || row["accountCode"] || ""
+          row['Account Code'] || row['accountCode'] || '',
         ).trim();
         return { repCode, accountCode };
       });
@@ -52,7 +52,7 @@ export default function AccountsEmployeesImportPage() {
       setRows(parsed);
     } catch (err) {
       console.error(err);
-      setError("Failed to parse Excel file.");
+      setError('Failed to parse Excel file.');
     }
   };
 
@@ -84,7 +84,7 @@ export default function AccountsEmployeesImportPage() {
           {running && (
             <div className="mb-4">
               <Button disabled>
-                <Loader2 className="w-4 h-4 animate-spin mr-2" /> Processing...
+                <Loader2 className="size-4 animate-spin mr-2" /> Processing...
               </Button>
               <div className="text-sm mt-2">
                 {progress.current} / {progress.total}
@@ -115,11 +115,11 @@ export default function AccountsEmployeesImportPage() {
               </thead>
               <tbody>
                 {results.map((r, idx) => (
-                  <tr key={idx} className={r.success ? "" : "bg-red-50"}>
+                  <tr key={idx} className={r.success ? '' : 'bg-red-50'}>
                     <td className="px-2 py-1">{rows[idx]?.repCode}</td>
                     <td className="px-2 py-1">{rows[idx]?.accountCode}</td>
-                    <td className="px-2 py-1">{r.success ? "✅" : "❌"}</td>
-                    <td className="px-2 py-1">{r.message || ""}</td>
+                    <td className="px-2 py-1">{r.success ? '✅' : '❌'}</td>
+                    <td className="px-2 py-1">{r.message || ''}</td>
                   </tr>
                 ))}
               </tbody>

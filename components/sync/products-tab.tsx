@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -11,12 +11,12 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { toast } from "sonner";
-import { fetchWithAuth } from "@/lib/auth";
-import { useDebounce } from "@/hooks/useDebounce";
-import { TableSkeleton } from "../ui/table-skeleton";
-import { Loader2, RefreshCw } from "lucide-react";
+} from '@/components/ui/table';
+import { toast } from 'sonner';
+import { fetchWithAuth } from '@/lib/auth';
+import { useDebounce } from '@/hooks/useDebounce';
+import { TableSkeleton } from '../ui/table-skeleton';
+import { Loader2, RefreshCw } from 'lucide-react';
 
 type Product = {
   id: string;
@@ -31,8 +31,8 @@ export function ProductsTab() {
   const [products, setProducts] = useState<Product[]>([]);
   const [totalProducts, setTotalProducts] = useState(0);
   const [page, setPage] = useState(0);
-  const [search, setSearch] = useState("");
-  const [sortKey, setSortKey] = useState<keyof Product>("updatedAt");
+  const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState<keyof Product>('updatedAt');
   const [sortAsc, setSortAsc] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingTable, setLoadingTable] = useState(false);
@@ -48,16 +48,16 @@ export function ProductsTab() {
 
     const {
       page = 0,
-      search = "",
-      sortKey = "updatedAt",
+      search = '',
+      sortKey = 'updatedAt',
       sortAsc = false,
     } = options;
 
     const offset = page * PAGE_SIZE;
     const res = await fetchWithAuth(
       `/api/tedis/products?limit=${PAGE_SIZE}&offset=${offset}&search=${encodeURIComponent(
-        search
-      )}&sortKey=${sortKey}&sortOrder=${sortAsc ? "asc" : "desc"}`
+        search,
+      )}&sortKey=${sortKey}&sortOrder=${sortAsc ? 'asc' : 'desc'}`,
     );
     const data = await res.json();
     setProducts(data.products);
@@ -68,23 +68,23 @@ export function ProductsTab() {
   const handleSync = async () => {
     setLoading(true);
     try {
-      const res = await fetchWithAuth("/api/tedis/sync/products", {
-        method: "POST",
+      const res = await fetchWithAuth('/api/tedis/sync/products', {
+        method: 'POST',
       });
       const { jobId } = await res.json();
-      if (!jobId) throw new Error("Failed to start sync job");
+      if (!jobId) throw new Error('Failed to start sync job');
 
       const interval = setInterval(async () => {
         const statusRes = await fetchWithAuth(
-          `/api/tedis/sync/products/status?jobId=${jobId}`
+          `/api/tedis/sync/products/status?jobId=${jobId}`,
         );
         const status = await statusRes.json();
-        if (status.status === "success") {
+        if (status.status === 'success') {
           clearInterval(interval);
           toast.success(`Synced ${status.synced} products.`);
           fetchProducts({ page });
           setLoading(false);
-        } else if (status.status === "error") {
+        } else if (status.status === 'error') {
           clearInterval(interval);
           toast.error(`Sync failed: ${status.error}`);
           setLoading(false);
@@ -144,9 +144,9 @@ export function ProductsTab() {
             </span>
             <Button onClick={handleSync} disabled={loading} className="ml-auto">
               {loading ? (
-                <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                <Loader2 className="animate-spin size-4 mr-2" />
               ) : (
-                <RefreshCw className="h-4 w-4 mr-2" />
+                <RefreshCw className="size-4 mr-2" />
               )}
               Sync Products
             </Button>
@@ -159,22 +159,22 @@ export function ProductsTab() {
               <TableRow>
                 <TableHead
                   className="cursor-pointer"
-                  onClick={() => handleSort("productCode")}
+                  onClick={() => handleSort('productCode')}
                 >
                   Product Code
-                  {sortKey === "productCode" && (sortAsc ? "▲" : "▼")}
+                  {sortKey === 'productCode' && (sortAsc ? '▲' : '▼')}
                 </TableHead>
                 <TableHead
                   className="cursor-pointer"
-                  onClick={() => handleSort("name")}
+                  onClick={() => handleSort('name')}
                 >
-                  Name {sortKey === "name" && (sortAsc ? "▲" : "▼")}
+                  Name {sortKey === 'name' && (sortAsc ? '▲' : '▼')}
                 </TableHead>
                 <TableHead
                   className="cursor-pointer"
-                  onClick={() => handleSort("updatedAt")}
+                  onClick={() => handleSort('updatedAt')}
                 >
-                  Last Synced {sortKey === "updatedAt" && (sortAsc ? "▲" : "▼")}
+                  Last Synced {sortKey === 'updatedAt' && (sortAsc ? '▲' : '▼')}
                 </TableHead>
               </TableRow>
             </TableHeader>

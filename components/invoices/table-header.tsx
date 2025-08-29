@@ -39,7 +39,7 @@ export default function Header({
       </div>
       <div className="flex items-center gap-3 w-full md:w-auto">
         <div className="relative w-full md:w-80">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 text-muted-foreground -translate-y-1/2" />
+          <Search className="absolute left-3 top-1/2 size-4 text-muted-foreground -translate-y-1/2" />
           <Input
             value={value}
             onChange={(e) => setValue(e.target.value)}
@@ -55,7 +55,7 @@ export default function Header({
               }
             }}
             placeholder="Search invoices..."
-            className="pl-10 pr-10 h-10"
+            className="px-10 h-10"
           />
           {/* Added clear search button */}
           {value && (
@@ -65,7 +65,7 @@ export default function Header({
               onClick={clearSearch}
               className="absolute right-1 top-1/2 h-8 w-8 p-0 -translate-y-1/2 hover:bg-muted"
             >
-              <X className="h-4 w-4" />
+              <X className="size-4" />
             </Button>
           )}
         </div>
@@ -95,7 +95,7 @@ export default function Header({
             a.click();
           }}
         >
-          <Download className="mr-2 h-4 w-4" />
+          <Download className="mr-2 size-4" />
           Export
         </Button>
       </div>

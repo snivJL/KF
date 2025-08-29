@@ -156,7 +156,7 @@ export default function UploadPage() {
       {data.length > 0 && (
         <div className="flex items-center gap-4 mb-4">
           <Button onClick={handleValidate} disabled={validating}>
-            {validating && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+            {validating && <Loader2 className="size-4 animate-spin mr-2" />}
             {validating ? 'Validating...' : 'Validate'}
           </Button>
           <span className="text-sm text-muted-foreground">
@@ -228,7 +228,7 @@ export default function UploadPage() {
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-lg font-semibold">Upload to VCRM</h2>
             <Button onClick={handleUpload} disabled={uploading}>
-              {uploading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              {uploading && <Loader2 className="size-4 animate-spin mr-2" />}
               {uploading ? 'Uploading...' : 'Upload'}
             </Button>
           </div>

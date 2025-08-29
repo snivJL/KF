@@ -1,47 +1,47 @@
-"use client";
+'use client';
 
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardHeader,
   CardTitle,
   CardDescription,
   CardContent,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import useBatchProcessor from "@/hooks/use-batch-processor";
-import { parseIdsFromFile } from "@/lib/helpers";
-import { Loader2 } from "lucide-react";
-import { useState, type ChangeEvent } from "react";
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import useBatchProcessor from '@/hooks/use-batch-processor';
+import { parseIdsFromFile } from '@/lib/helpers';
+import { Loader2 } from 'lucide-react';
+import { useState, type ChangeEvent } from 'react';
 
 export default function TerritoriesTriggerPage() {
   const [prescriberIds, setPrescriberIds] = useState<string[]>([]);
   const [customerIds, setCustomerIds] = useState<string[]>([]);
-  const [type, setType] = useState<"prescriber" | "customer">("prescriber");
+  const [type, setType] = useState<'prescriber' | 'customer'>('prescriber');
   const [error, setError] = useState<string>();
 
   // Define process functions
   const processPrescriber = async (id: string) => {
     const form = new FormData();
-    form.append("id", id);
-    const res = await fetch("/api/tedis/territories/prescribers", {
-      method: "POST",
+    form.append('id', id);
+    const res = await fetch('/api/tedis/territories/prescribers', {
+      method: 'POST',
       body: form,
     });
     const data = await res.json();
-    return { id, success: res.ok, message: data.error || "" };
+    return { id, success: res.ok, message: data.error || '' };
   };
 
   const processCustomer = async (id: string) => {
     const form = new FormData();
-    form.append("id", id);
-    const res = await fetch("/api/tedis/territories/customers", {
-      method: "POST",
+    form.append('id', id);
+    const res = await fetch('/api/tedis/territories/customers', {
+      method: 'POST',
       body: form,
     });
     const data = await res.json();
-    return { id, success: res.ok, message: data.error || "" };
+    return { id, success: res.ok, message: data.error || '' };
   };
 
   // Initialize batch processors
@@ -66,11 +66,11 @@ export default function TerritoriesTriggerPage() {
     if (!file) return;
     try {
       const ids = await parseIdsFromFile(file);
-      if (type === "prescriber") setPrescriberIds(ids);
+      if (type === 'prescriber') setPrescriberIds(ids);
       else setCustomerIds(ids);
     } catch (err) {
       console.error(err);
-      setError("Failed to parse Excel file.");
+      setError('Failed to parse Excel file.');
     }
   };
 
@@ -89,11 +89,11 @@ export default function TerritoriesTriggerPage() {
             <TabsList>
               <TabsTrigger
                 value="prescriber"
-                onClick={() => setType("prescriber")}
+                onClick={() => setType('prescriber')}
               >
                 Prescribers
               </TabsTrigger>
-              <TabsTrigger value="customer" onClick={() => setType("customer")}>
+              <TabsTrigger value="customer" onClick={() => setType('customer')}>
                 Customers
               </TabsTrigger>
             </TabsList>
@@ -114,11 +114,11 @@ export default function TerritoriesTriggerPage() {
                 >
                   {prescriberRunning ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      <Loader2 className="size-4 animate-spin mr-2" />
                       Processing...
                     </>
                   ) : (
-                    "Start Prescribers"
+                    'Start Prescribers'
                   )}
                 </Button>
               )}
@@ -140,7 +140,7 @@ export default function TerritoriesTriggerPage() {
                     />
                   </div>
                   <div className="text-xs">
-                    ✅ {prescriberProgress.successes} | ❌{" "}
+                    ✅ {prescriberProgress.successes} | ❌{' '}
                     {prescriberProgress.failures}
                   </div>
                 </div>
@@ -156,9 +156,9 @@ export default function TerritoriesTriggerPage() {
                   </thead>
                   <tbody>
                     {prescriberResults.map((r) => (
-                      <tr key={r.id} className={r.success ? "" : "bg-red-50"}>
+                      <tr key={r.id} className={r.success ? '' : 'bg-red-50'}>
                         <td className="px-2 py-1">{r.id}</td>
-                        <td className="px-2 py-1">{r.success ? "✅" : "❌"}</td>
+                        <td className="px-2 py-1">{r.success ? '✅' : '❌'}</td>
                         <td className="px-2 py-1">{r.message}</td>
                       </tr>
                     ))}
@@ -183,11 +183,11 @@ export default function TerritoriesTriggerPage() {
                 >
                   {customerRunning ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      <Loader2 className="size-4 animate-spin mr-2" />
                       Processing...
                     </>
                   ) : (
-                    "Start Customers"
+                    'Start Customers'
                   )}
                 </Button>
               )}
@@ -208,7 +208,7 @@ export default function TerritoriesTriggerPage() {
                     />
                   </div>
                   <div className="text-xs">
-                    ✅ {customerProgress.successes} | ❌{" "}
+                    ✅ {customerProgress.successes} | ❌{' '}
                     {customerProgress.failures}
                   </div>
                 </div>
@@ -224,9 +224,9 @@ export default function TerritoriesTriggerPage() {
                   </thead>
                   <tbody>
                     {customerResults.map((r) => (
-                      <tr key={r.id} className={r.success ? "" : "bg-red-50"}>
+                      <tr key={r.id} className={r.success ? '' : 'bg-red-50'}>
                         <td className="px-2 py-1">{r.id}</td>
-                        <td className="px-2 py-1">{r.success ? "✅" : "❌"}</td>
+                        <td className="px-2 py-1">{r.success ? '✅' : '❌'}</td>
                         <td className="px-2 py-1">{r.message}</td>
                       </tr>
                     ))}

@@ -1,8 +1,8 @@
-"use client";
-import Link from "next/link";
-import Image from "next/image";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+'use client';
+import Link from 'next/link';
+import Image from 'next/image';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import {
   Home,
   Upload,
@@ -11,27 +11,27 @@ import {
   PillIcon,
   ListChecks,
   ReceiptIcon,
-} from "lucide-react";
-import { usePathname } from "next/navigation";
-import { signIn, signOut, useSession } from "next-auth/react";
+} from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { signIn, signOut, useSession } from 'next-auth/react';
 
 const sidebarLinks = [
-  { href: "/", label: "Home", icon: Home },
-  { href: "/upload", label: "Upload", icon: Upload },
-  { href: "/surveys", label: "Surveys", icon: ListChecks },
-  { label: "Sync Data", href: "/sync", icon: RefreshCw },
-  { label: "Territories", href: "/territory", icon: ContactIcon },
+  { href: '/', label: 'Home', icon: Home },
+  { href: '/upload', label: 'Upload', icon: Upload },
+  { href: '/surveys', label: 'Surveys', icon: ListChecks },
+  { label: 'Sync Data', href: '/sync', icon: RefreshCw },
+  { label: 'Territories', href: '/territory', icon: ContactIcon },
   {
-    label: "Contact - Employees",
-    href: "/contacts-employees",
+    label: 'Contact - Employees',
+    href: '/contacts-employees',
     icon: ContactIcon,
   },
   {
-    label: "Accounts - Employees",
-    href: "/accounts-employees",
+    label: 'Accounts - Employees',
+    href: '/accounts-employees',
     icon: PillIcon,
   },
-  { label: "Invoices", href: "/invoices", icon: ReceiptIcon },
+  { label: 'Invoices', href: '/invoices', icon: ReceiptIcon },
 ];
 
 const Sidebar = () => {
@@ -39,13 +39,13 @@ const Sidebar = () => {
   const pathname = usePathname();
 
   const handleAuth = () => {
-    window.location.href = "/api/auth/login";
+    window.location.href = '/api/auth/login';
   };
 
   const hideSidebar =
-    pathname === "/login" ||
-    pathname === "/register" ||
-    pathname === "/surveys";
+    pathname === '/login' ||
+    pathname === '/register' ||
+    pathname === '/surveys';
 
   const handleLogin = () => signIn();
   const handleLogout = () => signOut();
@@ -68,11 +68,11 @@ const Sidebar = () => {
           key={href}
           href={href}
           className={cn(
-            "flex items-center gap-2 px-3 py-2 rounded-md hover:bg-[#2f3348] transition",
-            pathname === href && "bg-[#638AC7]"
+            'flex items-center gap-2 px-3 py-2 rounded-md hover:bg-[#2f3348] transition',
+            pathname === href && 'bg-[#638AC7]',
           )}
         >
-          <Icon className="w-5 h-5" />
+          <Icon className="size-5" />
           <span>{label}</span>
         </Link>
       ))}

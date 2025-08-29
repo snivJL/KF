@@ -1,33 +1,33 @@
-"use client";
+'use client';
 
-import type { UIInvoice } from "@/app/invoices/page";
-import type { ColumnDef } from "@tanstack/react-table";
-import { ChevronDown, ChevronRight } from "lucide-react";
-import StatusBadge from "./status-badge";
-import { currencyFormat, dateFormat } from "@/lib/format";
+import type { UIInvoice } from '@/app/invoices/page';
+import type { ColumnDef } from '@tanstack/react-table';
+import { ChevronDown, ChevronRight } from 'lucide-react';
+import StatusBadge from './status-badge';
+import { currencyFormat, dateFormat } from '@/lib/format';
 
 export const invoiceColumns: ColumnDef<UIInvoice>[] = [
   {
-    id: "expander",
-    header: "",
+    id: 'expander',
+    header: '',
     cell: ({ row }) => (
       <button
-        aria-label={row.getIsExpanded() ? "Collapse" : "Expand"}
+        aria-label={row.getIsExpanded() ? 'Collapse' : 'Expand'}
         className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted transition-colors"
         onClick={row.getToggleExpandedHandler()}
       >
         {row.getIsExpanded() ? (
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          <ChevronDown className="size-4 text-muted-foreground" />
         ) : (
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          <ChevronRight className="size-4 text-muted-foreground" />
         )}
       </button>
     ),
     size: 48,
   },
   {
-    accessorKey: "dateISO",
-    header: "Date",
+    accessorKey: 'dateISO',
+    header: 'Date',
     cell: ({ getValue }) => (
       <div className="font-medium text-sm">
         {dateFormat(getValue() as string | null)}
@@ -35,20 +35,20 @@ export const invoiceColumns: ColumnDef<UIInvoice>[] = [
     ),
   },
   {
-    accessorKey: "subject",
-    header: "Subject",
+    accessorKey: 'subject',
+    header: 'Subject',
     cell: ({ getValue }) => (
       <div
         className="max-w-[280px] truncate font-medium"
-        title={(getValue() as string) ?? ""}
+        title={(getValue() as string) ?? ''}
       >
-        {(getValue() as string) ?? "—"}
+        {(getValue() as string) ?? '—'}
       </div>
     ),
   },
   {
-    accessorKey: "zohoId",
-    header: "Zoho ID",
+    accessorKey: 'zohoId',
+    header: 'Zoho ID',
     cell: ({ getValue }) => (
       <div className="font-mono text-xs text-muted-foreground">
         {getValue() as string}
@@ -56,17 +56,17 @@ export const invoiceColumns: ColumnDef<UIInvoice>[] = [
     ),
   },
   {
-    accessorKey: "accountCode",
-    header: "Account Code",
+    accessorKey: 'accountCode',
+    header: 'Account Code',
     cell: ({ getValue }) => (
       <div className="font-mono text-xs text-muted-foreground">
-        {(getValue() as string) ?? "—"}
+        {(getValue() as string) ?? '—'}
       </div>
     ),
   },
   {
-    accessorKey: "accountId",
-    header: "Account ID",
+    accessorKey: 'accountId',
+    header: 'Account ID',
     cell: ({ getValue }) => (
       <div className="font-mono text-xs text-muted-foreground">
         {getValue() as string}
@@ -74,8 +74,8 @@ export const invoiceColumns: ColumnDef<UIInvoice>[] = [
     ),
   },
   {
-    accessorKey: "itemsCount",
-    header: "Items",
+    accessorKey: 'itemsCount',
+    header: 'Items',
     cell: ({ getValue }) => (
       <div className="text-center">
         <span className="inline-flex items-center justify-center w-8 h-6 text-xs font-medium bg-muted rounded-full">
@@ -85,8 +85,8 @@ export const invoiceColumns: ColumnDef<UIInvoice>[] = [
     ),
   },
   {
-    accessorKey: "grandTotal",
-    header: "Grand Total",
+    accessorKey: 'grandTotal',
+    header: 'Grand Total',
     cell: ({ row }) => (
       <div className="text-right font-semibold">
         {currencyFormat(row.original.grandTotal, row.original.currency)}

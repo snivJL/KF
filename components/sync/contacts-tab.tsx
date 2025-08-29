@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { useEffect, useState } from 'react';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -9,12 +9,12 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
-import { Button } from "../ui/button";
-import { Loader2, RefreshCw } from "lucide-react";
-import { fetchWithAuth } from "@/lib/auth";
+} from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
+import { Button } from '../ui/button';
+import { Loader2, RefreshCw } from 'lucide-react';
+import { fetchWithAuth } from '@/lib/auth';
 
 export type Contact = {
   id: string;
@@ -27,12 +27,12 @@ export type Contact = {
 
 export default function ContactsTab() {
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [search, setSearch] = useState("");
-  const [sortKey, setSortKey] = useState<keyof Contact>("updatedAt");
+  const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState<keyof Contact>('updatedAt');
   const [sortAsc, setSortAsc] = useState(false);
   const [loading, setLoading] = useState(false);
   const fetchContacts = async () => {
-    const res = await fetchWithAuth("/api/tedis/contacts?take=100");
+    const res = await fetchWithAuth('/api/tedis/contacts?take=100');
     const data = await res.json();
     setContacts(data);
   };
@@ -43,11 +43,11 @@ export default function ContactsTab() {
   const handleSync = async () => {
     setLoading(true);
     try {
-      const res = await fetchWithAuth("/api/tedis/sync/contacts", {
-        method: "POST",
+      const res = await fetchWithAuth('/api/tedis/sync/contacts', {
+        method: 'POST',
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Unknown error");
+      if (!res.ok) throw new Error(data.error || 'Unknown error');
       toast.success(`Synced ${data.synced} contacts.`);
       fetchContacts();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -63,7 +63,7 @@ export default function ContactsTab() {
       (a) =>
         a.firstName.toLowerCase().includes(search.toLowerCase()) ||
         a.lastName.toLowerCase().includes(search.toLowerCase()) ||
-        a.code.toLowerCase().includes(search.toLowerCase())
+        a.code.toLowerCase().includes(search.toLowerCase()),
     )
     .sort((a, b) => {
       const valA = a[sortKey];
@@ -84,7 +84,7 @@ export default function ContactsTab() {
 
   return (
     <>
-      {" "}
+      {' '}
       <Card className="mb-6">
         <CardContent className="p-6">
           <div className="flex items-center justify-between">
@@ -96,9 +96,9 @@ export default function ContactsTab() {
             </div>
             <Button onClick={handleSync} disabled={loading}>
               {loading ? (
-                <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                <Loader2 className="animate-spin size-4 mr-2" />
               ) : (
-                <RefreshCw className="h-4 w-4 mr-2" />
+                <RefreshCw className="size-4 mr-2" />
               )}
               Sync Contacts
             </Button>
@@ -125,22 +125,22 @@ export default function ContactsTab() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead onClick={() => handleSort("code")}>
-                    Code {sortKey === "code" && (sortAsc ? "▲" : "▼")}
+                  <TableHead onClick={() => handleSort('code')}>
+                    Code {sortKey === 'code' && (sortAsc ? '▲' : '▼')}
                   </TableHead>
-                  <TableHead onClick={() => handleSort("firstName")}>
-                    First Name{" "}
-                    {sortKey === "firstName" && (sortAsc ? "▲" : "▼")}
+                  <TableHead onClick={() => handleSort('firstName')}>
+                    First Name{' '}
+                    {sortKey === 'firstName' && (sortAsc ? '▲' : '▼')}
                   </TableHead>
-                  <TableHead onClick={() => handleSort("lastName")}>
-                    Last Name {sortKey === "lastName" && (sortAsc ? "▲" : "▼")}
+                  <TableHead onClick={() => handleSort('lastName')}>
+                    Last Name {sortKey === 'lastName' && (sortAsc ? '▲' : '▼')}
                   </TableHead>
-                  <TableHead onClick={() => handleSort("updatedAt")}>
-                    Last Synced{" "}
-                    {sortKey === "updatedAt" && (sortAsc ? "▲" : "▼")}
+                  <TableHead onClick={() => handleSort('updatedAt')}>
+                    Last Synced{' '}
+                    {sortKey === 'updatedAt' && (sortAsc ? '▲' : '▼')}
                   </TableHead>
-                  <TableHead onClick={() => handleSort("trigger")}>
-                    Trigger {sortKey === "trigger" && (sortAsc ? "▲" : "▼")}
+                  <TableHead onClick={() => handleSort('trigger')}>
+                    Trigger {sortKey === 'trigger' && (sortAsc ? '▲' : '▼')}
                   </TableHead>
                 </TableRow>
               </TableHeader>

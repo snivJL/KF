@@ -272,21 +272,21 @@ export default function MassUpdateDialog({
 
   const getStatusIcon = () => {
     if (isPending)
-      return <Loader2 className="h-5 w-5 animate-spin text-blue-500" />;
+      return <Loader2 className="size-5 animate-spin text-blue-500" />;
     if (!result) return null;
 
     if (result.success) {
-      return <CheckCircle className="h-5 w-5 text-green-500" />;
+      return <CheckCircle className="size-5 text-green-500" />;
     } else {
       switch (result.details?.errorType) {
         case 'validation':
-          return <AlertCircle className="h-5 w-5 text-amber-500" />;
+          return <AlertCircle className="size-5 text-amber-500" />;
         case 'zoho':
         case 'network':
         case 'database':
-          return <XCircle className="h-5 w-5 text-red-500" />;
+          return <XCircle className="size-5 text-red-500" />;
         default:
-          return <XCircle className="h-5 w-5 text-red-500" />;
+          return <XCircle className="size-5 text-red-500" />;
       }
     }
   };
@@ -351,7 +351,7 @@ export default function MassUpdateDialog({
               <h3 className="text-lg font-semibold">Mass Update Invoices</h3>
               <div className="mt-2 p-3 rounded-md bg-blue-50 border border-blue-200">
                 <div className="flex items-start gap-2">
-                  <Info className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                  <Info className="size-4 text-blue-500 mt-0.5 shrink-0" />
                   <div className="text-sm text-blue-700">
                     <p className="font-medium">Current filters:</p>
                     <p className="text-blue-600">{getFilterSummary()}</p>
@@ -410,7 +410,7 @@ export default function MassUpdateDialog({
                       )}
                     </SelectContent>
                   </Select>
-                  <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                  <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
                 </div>
 
                 {employees.length === 0 && !loadingEmployees && (
@@ -472,7 +472,7 @@ export default function MassUpdateDialog({
                 >
                   {isPending ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="mr-2 size-4 animate-spin" />
                       Updating...
                     </>
                   ) : (

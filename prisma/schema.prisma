@@ -175,3 +175,24 @@ enum JobStatus {
   FAILED
   CANCELLED
 }
+
+model InvoiceLink {
+  id          String   @id @default(cuid())
+  ym          String // e.g., "202508"
+  externalKey String // e.g., "INV:202508:00000698"
+  crmId       String // Zoho Invoice record id
+  contentHash String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([externalKey])
+  @@index([ym])
+  @@index([crmId])
+}
+
+model InvoiceImportBatch {
+  id        String   @id @default(cuid())
+  ym        String
+  fileName  String
+  createdAt DateTime @default(now())
+}

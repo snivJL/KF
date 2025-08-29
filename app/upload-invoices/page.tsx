@@ -26,6 +26,32 @@ export default function InvoicesApplyPage() {
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [result, setResult] = useState<unknown>(null);
   const [error, setError] = useState<string | null>(null);
+  type ErrorReport = { fileName: string; mime: string; base64: string };
+  type ApplyPreviewResult = {
+    errorReport?: ErrorReport | null;
+    [k: string]: unknown;
+  };
+
+  function downloadReport(er: ErrorReport) {
+    try {
+      const binary = atob(er.base64);
+      const len = binary.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+      const blob = new Blob([bytes], { type: er.mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = er.fileName || 'errors.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      setError('Failed to download error report');
+    }
+  }
 
   async function onApply() {
     if (!file) {
@@ -137,6 +163,21 @@ export default function InvoicesApplyPage() {
             <pre className="mt-4 max-h-[420px] overflow-auto rounded-md border bg-muted p-4 text-xs">
               {JSON.stringify(result, null, 2)}
             </pre>
+          ) : null}
+
+          {result && (result as ApplyPreviewResult).errorReport ? (
+            <div className="flex items-center gap-3">
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  downloadReport(
+                    (result as ApplyPreviewResult).errorReport as ErrorReport,
+                  )
+                }
+              >
+                Download error report
+              </Button>
+            </div>
           ) : null}
         </CardContent>
       </Card>

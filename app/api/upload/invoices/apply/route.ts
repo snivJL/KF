@@ -1,15 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import * as XLSX from 'xlsx';
-import { format, isValid, parseISO } from 'date-fns';
 import { prisma } from '@/lib/prisma';
-import {
-  buildInvoiceHash,
-  isoFromExcelCell,
-  makeExternalKey,
-  normalizeNumber,
-  pad7,
-  tryParseNumber,
-} from '@/lib/invoices';
+import { normalizeNumber, pad7 } from '@/lib/invoices';
 import { getValidAccessTokenFromServer } from '@/lib/auth-server';
 import {
   clearSubform,
@@ -20,35 +11,22 @@ import {
 import { z } from 'zod';
 import { asyncPool } from '@/lib/zoho/api';
 import { parseAxiosError } from '@/lib/errors';
+import {
+  parseInvoicesWorkbookArrayBuffer,
+  generateErrorReport,
+  type ErrorRow,
+  type InvoiceGroup,
+} from '@/lib/upload-invoices/utils';
 
 const SHEET_NAME = 'Template Invoice Creation ';
 const CONCURRENCY = 3;
 
-type RowPick = {
-  invoiceDId: string;
-  invoiceDate: string; // ISO yyyy-mm-dd
-  accountCode: string;
-  employeeCode: string;
-  productCode: string;
-  quantity: number;
-  unitPrice: number;
-  itemDiscount: number;
-};
 type ResultItem = {
   externalKey: string;
   crmId?: string;
   status: 'created' | 'updated' | 'deleted' | 'voided' | 'skipped' | 'error';
   error?: string;
   details?: Record<string, unknown>;
-};
-type InvoiceGroup = {
-  ym: string;
-  externalKey: string;
-  invoiceDId: string;
-  invoiceDate: string;
-  accountCode: string;
-  rows: (RowPick & { raw: unknown[] })[]; // raw retained for hashing of all columns
-  contentHash: string;
 };
 
 const schema = z.object({
@@ -73,121 +51,22 @@ export async function POST(req: NextRequest) {
     }
 
     const ab = await file.arrayBuffer();
-    const wb = XLSX.read(ab);
-    const ws = wb.Sheets[SHEET_NAME];
-    if (!ws)
+    let headers: string[];
+    let groups: Map<string, InvoiceGroup>;
+    let invoices: InvoiceGroup[];
+    let ym: string;
+    try {
+      const parsed = parseInvoicesWorkbookArrayBuffer(ab, SHEET_NAME);
+      headers = parsed.headers;
+      groups = parsed.groups;
+      invoices = parsed.invoices;
+      ym = parsed.ym;
+    } catch (e) {
       return NextResponse.json(
-        { error: `Sheet "${SHEET_NAME}" not found` },
+        { error: (e as Error).message },
         { status: 400 },
       );
-
-    // We read as raw arrays to keep *all columns* for hashing
-    const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, {
-      header: 1,
-    }) as unknown[][];
-    if (!rows.length)
-      return NextResponse.json({ error: 'Empty sheet' }, { status: 400 });
-
-    // Find header row – assume the first row that contains "Invoice D. ID" is the header
-    let headerRowIdx = rows.findIndex((r) =>
-      (r ?? []).includes('Invoice D. ID'),
-    );
-    if (headerRowIdx === -1) headerRowIdx = 0;
-    const headers = (rows[headerRowIdx] ?? []).map((h) => String(h));
-    const dataRows = rows.slice(headerRowIdx + 1).filter((r) => r?.length);
-
-    const idx = (name: string) => headers.indexOf(name);
-    const required = [
-      'Invoice D. ID',
-      'Invoice Date',
-      'Account Code',
-      'Employee Code',
-      'Product Code',
-      'Quantity',
-      'List Price per unit (-VAT)',
-      'Total Discount on item',
-    ];
-    for (const c of required) {
-      if (idx(c) === -1) {
-        return NextResponse.json(
-          { error: `Missing required column: ${c}` },
-          { status: 400 },
-        );
-      }
     }
-
-    // Group rows by external key with consecutive grouping
-    const groups = new Map<string, InvoiceGroup>();
-    // Track occurrences of the same external key base (per ym, invoiceDId, account)
-    const occurrenceMap = new Map<string, number>();
-    let currentGroup: InvoiceGroup | null = null;
-
-    for (let i = 0; i < dataRows.length; i++) {
-      const r = dataRows[i];
-      const invoiceDId = String(r[idx('Invoice D. ID')] ?? '').trim();
-      const invoiceDate = isoFromExcelCell(r[idx('Invoice Date')]);
-      const date = parseISO(invoiceDate);
-
-      if (!isValid(date)) {
-        continue;
-      }
-
-      const accountCode = String(r[idx('Account Code')] ?? '').trim();
-      const row: RowPick & { raw: unknown[] } = {
-        invoiceDId,
-        invoiceDate,
-        accountCode,
-        employeeCode: String(r[idx('Employee Code')] ?? '').trim(),
-        productCode: String(r[idx('Product Code')] ?? '').trim(),
-        quantity: normalizeNumber(tryParseNumber(r[idx('Quantity')]) ?? 0, 2),
-        unitPrice: normalizeNumber(
-          tryParseNumber(r[idx('List Price per unit (-VAT)')]) ?? 0,
-          2,
-        ),
-        itemDiscount: normalizeNumber(
-          tryParseNumber(r[idx('Total Discount on item')]) ?? 0,
-          2,
-        ),
-        raw: r,
-      };
-
-      // We only group when the same invoiceDId appears on subsequent (consecutive) rows
-      const prevRow = i > 0 ? dataRows[i - 1] : null;
-      const prevInvoiceDId = prevRow
-        ? String(prevRow[idx('Invoice D. ID')] ?? '').trim()
-        : null;
-      const shouldStartNewGroup = i === 0 || prevInvoiceDId !== invoiceDId;
-      if (shouldStartNewGroup) {
-        const { ym, key: baseKey } = makeExternalKey(invoiceDId, invoiceDate);
-        // Base key per occurrence (same invoiceDId can appear in multiple non-consecutive blocks)
-        const base = `${baseKey}:${accountCode}`;
-        const nextIdx = (occurrenceMap.get(base) ?? 0) + 1;
-        occurrenceMap.set(base, nextIdx);
-        // Suffix index only when it is not the first occurrence to preserve legacy keys
-        const key = nextIdx > 1 ? `${base}:${nextIdx}` : base;
-
-        currentGroup = {
-          ym,
-          externalKey: key,
-          invoiceDId,
-          invoiceDate,
-          accountCode,
-          rows: [],
-          contentHash: '', // fill later
-        };
-        groups.set(key, currentGroup);
-      }
-
-      currentGroup?.rows.push(row);
-    }
-    // Compute hash for each group using first 8 columns only (normalized)
-    for (const g of groups.values()) {
-      const groupRows = g.rows.map((rr) => rr.raw);
-      g.contentHash = buildInvoiceHash(headers, groupRows, { columnLimit: 8 });
-    }
-
-    const invoices = Array.from(groups.values());
-    const ym = invoices[0]?.ym ?? format(new Date(), 'yyyyMM');
 
     const links = await prisma.invoiceLink.findMany({
       where: { ym },
@@ -203,14 +82,6 @@ export async function POST(req: NextRequest) {
     );
     const toRemove = links.filter((l) => !inFile.has(l.externalKey));
 
-    console.log(
-      'To create: ',
-      toCreate.length,
-      'To update: ',
-      toUpdate.length,
-      'To remove: ',
-      toRemove.length,
-    );
     const accountCodes = Array.from(
       new Set(invoices.map((i) => i.accountCode)),
     );
@@ -240,7 +111,6 @@ export async function POST(req: NextRequest) {
     const productMap = new Map(products.map((p) => [p.productCode, p]));
     const employeeMap = new Map(employees.map((e) => [e.code, e]));
 
-    // Access token and base URL check
     if (!process.env.BASE_URL) {
       return NextResponse.json(
         { error: 'BASE_URL env missing' },
@@ -305,6 +175,7 @@ export async function POST(req: NextRequest) {
     const updated: ResultItem[] = [];
     const removed: ResultItem[] = [];
     const errors: ResultItem[] = [];
+    const groupByKey = groups;
 
     // CREATE
     await asyncPool(CONCURRENCY, toCreate, async (g) => {
@@ -398,6 +269,16 @@ export async function POST(req: NextRequest) {
       }
     });
 
+    // Build Excel error report if any
+    let errorReport: { fileName: string; mime: string; base64: string } | null =
+      null;
+    if (errors.length > 0) {
+      const errorRows: ErrorRow[] = errors.flatMap((er) =>
+        deriveErrorRows(er, groupByKey.get(er.externalKey)),
+      );
+      errorReport = generateErrorReport(headers, groups, errorRows);
+    }
+
     return NextResponse.json({
       ym,
       counts: {
@@ -410,6 +291,7 @@ export async function POST(req: NextRequest) {
       updated,
       removed,
       errors,
+      errorReport,
     });
   } catch (err: unknown) {
     return NextResponse.json(
@@ -417,4 +299,109 @@ export async function POST(req: NextRequest) {
       { status: 500 },
     );
   }
+}
+
+function friendlyZohoMessage(
+  details: Record<string, unknown> | undefined,
+  fallback: string,
+): string {
+  const jsonPath = String((details as any)?.json_path ?? '');
+  const apiName = String((details as any)?.api_name ?? '');
+  if (apiName === 'id' && /Assigned_Employee\.id/.test(jsonPath)) {
+    return 'employee does not exist';
+  }
+  if (apiName === 'id' && /Product_Name\.id/.test(jsonPath)) {
+    return 'product does not exist';
+  }
+  return fallback || 'Unknown error';
+}
+
+function deriveErrorRows(
+  err: ResultItem,
+  g: InvoiceGroup | undefined,
+): ErrorRow[] {
+  const rows: ErrorRow[] = [];
+  if (!g) {
+    rows.push({
+      rowNumber: 0,
+      invoiceDId: 'unknown',
+      externalKey: err.externalKey,
+      message: err.error ?? 'Unknown error',
+    });
+    return rows;
+  }
+
+  const rawMessage = err.error ?? 'Unknown error';
+  const details = err.details as Record<string, unknown> | undefined;
+
+  // Zoho json_path → item index → row number
+  const jsonPath = String((details as any)?.json_path ?? '');
+  const m = jsonPath.match(/Invoiced_Items\[(\d+)\]/);
+  if (m) {
+    const idx = Number(m[1]);
+    const rowNum = g.rows[idx]?.rowNumber ?? g.rows[0]?.rowNumber ?? 0;
+    rows.push({
+      rowNumber: rowNum,
+      invoiceDId: g.invoiceDId,
+      externalKey: err.externalKey,
+      message: friendlyZohoMessage(details, rawMessage),
+    });
+    return rows;
+  }
+
+  // Map known thrown errors
+  let matched = false;
+  let codeMatch = rawMessage.match(/Employee code not found: (\S+) in/);
+  if (codeMatch) {
+    matched = true;
+    const code = codeMatch[1];
+    const affected = g.rows.filter((r) => r.employeeCode === code);
+    const msg = `employee does not exist (code ${code})`;
+    (affected.length ? affected : [g.rows[0]]).forEach((r) =>
+      rows.push({
+        rowNumber: r.rowNumber,
+        invoiceDId: g.invoiceDId,
+        externalKey: err.externalKey,
+        message: msg,
+      }),
+    );
+  }
+  codeMatch = rawMessage.match(/Product code not found: (\S+) in/);
+  if (codeMatch) {
+    matched = true;
+    const code = codeMatch[1];
+    const affected = g.rows.filter((r) => r.productCode === code);
+    const msg = `product does not exist (code ${code})`;
+    (affected.length ? affected : [g.rows[0]]).forEach((r) =>
+      rows.push({
+        rowNumber: r.rowNumber,
+        invoiceDId: g.invoiceDId,
+        externalKey: err.externalKey,
+        message: msg,
+      }),
+    );
+  }
+  if (/Account code not found:/.test(rawMessage)) {
+    matched = true;
+    const msg = 'account does not exist';
+    g.rows.forEach((r) =>
+      rows.push({
+        rowNumber: r.rowNumber,
+        invoiceDId: g.invoiceDId,
+        externalKey: err.externalKey,
+        message: msg,
+      }),
+    );
+  }
+
+  if (!matched) {
+    rows.push({
+      rowNumber: g.rows[0]?.rowNumber ?? 0,
+      invoiceDId: g.invoiceDId,
+      externalKey: err.externalKey,
+      message: rawMessage,
+    });
+  }
+
+  return rows;
 }

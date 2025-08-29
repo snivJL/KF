@@ -1,15 +1,13 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import * as XLSX from 'xlsx';
-import { format, isValid, parseISO } from 'date-fns';
+// parsing and formatting moved to utils
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import {
-  buildInvoiceHash,
-  isoFromExcelCell,
-  makeExternalKey,
-  tryParseNumber,
-  normalizeNumber,
-} from '@/lib/invoices';
+  parseInvoicesWorkbookArrayBuffer,
+  generateErrorReport,
+  type ErrorRow,
+  type InvoiceGroup,
+} from '@/lib/upload-invoices/utils';
 
 const SHEET_NAME = 'Template Invoice Creation ';
 
@@ -32,141 +30,24 @@ export async function POST(req: NextRequest) {
     }
 
     const ab = await file.arrayBuffer();
-    const wb = XLSX.read(ab);
-    const ws = wb.Sheets[SHEET_NAME];
-    if (!ws)
+    let headers: string[];
+    let groups: Map<string, InvoiceGroup>;
+    let invoices: InvoiceGroup[];
+    let ym: string;
+    try {
+      const parsed = parseInvoicesWorkbookArrayBuffer(ab, SHEET_NAME);
+      headers = parsed.headers;
+      groups = parsed.groups;
+      invoices = parsed.invoices;
+      ym = parsed.ym;
+    } catch (e) {
       return NextResponse.json(
-        { error: `Sheet "${SHEET_NAME}" not found` },
+        { error: (e as Error).message },
         { status: 400 },
       );
-
-    // Read raw arrays to keep all columns for hashing
-    const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, {
-      header: 1,
-    }) as unknown[][];
-    if (!rows.length)
-      return NextResponse.json({ error: 'Empty sheet' }, { status: 400 });
-
-    // Find header row – use first containing "Invoice D. ID"
-    let headerRowIdx = rows.findIndex((r) =>
-      (r ?? []).includes('Invoice D. ID'),
-    );
-    if (headerRowIdx === -1) headerRowIdx = 0;
-    const headers = (rows[headerRowIdx] ?? []).map((h) => String(h));
-    const dataRows = rows.slice(headerRowIdx + 1).filter((r) => r?.length);
-
-    const idx = (name: string) => headers.indexOf(name);
-    const required = [
-      'Invoice D. ID',
-      'Invoice Date',
-      'Account Code',
-      'Employee Code',
-      'Product Code',
-      'Quantity',
-      'List Price per unit (-VAT)',
-      'Total Discount on item',
-    ];
-    for (const c of required) {
-      if (idx(c) === -1) {
-        return NextResponse.json(
-          { error: `Missing required column: ${c}` },
-          { status: 400 },
-        );
-      }
     }
 
-    type RowPick = {
-      invoiceDId: string;
-      invoiceDate: string;
-      accountCode: string;
-      employeeCode: string;
-      productCode: string;
-      quantity: number;
-      unitPrice: number;
-      itemDiscount: number;
-    };
-    type InvoiceGroup = {
-      ym: string;
-      externalKey: string;
-      invoiceDId: string;
-      invoiceDate: string;
-      accountCode: string;
-      rows: (RowPick & { raw: unknown[] })[];
-      contentHash: string;
-    };
-
-    const groups = new Map<string, InvoiceGroup>();
-    let currentGroup: InvoiceGroup | null = null;
-    // Track occurrences for repeated external key bases appearing in non-consecutive blocks
-    const occurrenceMap = new Map<string, number>();
-
-    for (let i = 0; i < dataRows.length; i++) {
-      const r = dataRows[i];
-      const invoiceDId = String(r[idx('Invoice D. ID')] ?? '').trim();
-      const invoiceDate = isoFromExcelCell(r[idx('Invoice Date')]);
-      const date = parseISO(invoiceDate);
-
-      if (!isValid(date)) {
-        continue;
-      }
-
-      const accountCode = String(r[idx('Account Code')] ?? '').trim();
-      const row: RowPick & { raw: unknown[] } = {
-        invoiceDId,
-        invoiceDate,
-        accountCode,
-        employeeCode: String(r[idx('Employee Code')] ?? '').trim(),
-        productCode: String(r[idx('Product Code')] ?? '').trim(),
-        quantity: normalizeNumber(tryParseNumber(r[idx('Quantity')]) ?? 0, 2),
-        unitPrice: normalizeNumber(
-          tryParseNumber(r[idx('List Price per unit (-VAT)')]) ?? 0,
-          2,
-        ),
-        itemDiscount: normalizeNumber(
-          tryParseNumber(r[idx('Total Discount on item')]) ?? 0,
-          2,
-        ),
-        raw: r,
-      };
-
-      // We only group when the same invoiceDId appears on subsequent (consecutive) rows
-      const prevRow = i > 0 ? dataRows[i - 1] : null;
-      const prevInvoiceDId = prevRow
-        ? String(prevRow[idx('Invoice D. ID')] ?? '').trim()
-        : null;
-      const shouldStartNewGroup = i === 0 || prevInvoiceDId !== invoiceDId;
-      if (shouldStartNewGroup) {
-        const { ym, key: baseKey } = makeExternalKey(invoiceDId, invoiceDate);
-        // Base key per occurrence (same invoiceDId can appear in multiple non-consecutive blocks)
-        const base = `${baseKey}:${accountCode}`;
-        const nextIdx = (occurrenceMap.get(base) ?? 0) + 1;
-        occurrenceMap.set(base, nextIdx);
-        // Suffix index only when it is not the first occurrence to preserve legacy keys
-        const key = nextIdx > 1 ? `${base}:${nextIdx}` : base;
-
-        currentGroup = {
-          ym,
-          externalKey: key,
-          invoiceDId,
-          invoiceDate,
-          accountCode,
-          rows: [],
-          contentHash: '', // fill later
-        };
-        groups.set(key, currentGroup);
-      }
-
-      currentGroup?.rows.push(row);
-    }
-
-    // Compute hashes using first 8 columns only (stable subset)
-    for (const g of groups.values()) {
-      const groupRows = g.rows.map((rr) => rr.raw);
-      g.contentHash = buildInvoiceHash(headers, groupRows, { columnLimit: 8 });
-    }
-
-    const invoices = Array.from(groups.values());
-    const ym = invoices[0]?.ym ?? format(new Date(), 'yyyyMM');
+    // 'headers', 'groups', 'invoices', 'ym' now come from parser above
 
     const links = await prisma.invoiceLink.findMany({ where: { ym } });
     const linkMap = new Map(links.map((l) => [l.externalKey, l]));
@@ -182,6 +63,76 @@ export async function POST(req: NextRequest) {
       (i) => linkMap.get(i.externalKey)?.contentHash === i.contentHash,
     );
     const toDeleteOrVoid = links.filter((l) => !inFile.has(l.externalKey));
+
+    // Validate referentials to prepare an error report (no network calls)
+    const accountCodes = Array.from(
+      new Set(invoices.map((i) => i.accountCode)),
+    );
+    const productCodes = Array.from(
+      new Set(invoices.flatMap((i) => i.rows.map((r) => r.productCode))),
+    );
+    const employeeCodes = Array.from(
+      new Set(invoices.flatMap((i) => i.rows.map((r) => r.employeeCode))),
+    );
+
+    const [accounts, products, employees] = await Promise.all([
+      prisma.account.findMany({
+        where: { code: { in: accountCodes } },
+        select: { code: true, id: true },
+      }),
+      prisma.product.findMany({
+        where: { productCode: { in: productCodes } },
+        select: { productCode: true, id: true },
+      }),
+      prisma.employee.findMany({
+        where: { code: { in: employeeCodes } },
+        select: { code: true, id: true },
+      }),
+    ]);
+    const accountMap = new Map(accounts.map((a) => [a.code, a]));
+    const productMap = new Map(products.map((p) => [p.productCode, p]));
+    const employeeMap = new Map(employees.map((e) => [e.code, e]));
+
+    const errorRows: ErrorRow[] = [];
+    for (const g of invoices) {
+      const acc = accountMap.get(g.accountCode);
+      if (!acc) {
+        for (const r of g.rows) {
+          errorRows.push({
+            rowNumber: r.rowNumber,
+            invoiceDId: g.invoiceDId,
+            externalKey: g.externalKey,
+            message: 'account does not exist',
+          });
+        }
+        continue; // if account invalid, items are moot but keep listing row errors above
+      }
+      for (const r of g.rows) {
+        if (!productMap.get(r.productCode)) {
+          errorRows.push({
+            rowNumber: r.rowNumber,
+            invoiceDId: g.invoiceDId,
+            externalKey: g.externalKey,
+            message: `product does not exist (code ${r.productCode})`,
+          });
+        }
+        if (!employeeMap.get(r.employeeCode)) {
+          errorRows.push({
+            rowNumber: r.rowNumber,
+            invoiceDId: g.invoiceDId,
+            externalKey: g.externalKey,
+            message: `employee does not exist (code ${r.employeeCode})`,
+          });
+        }
+      }
+    }
+
+    const errorReport: {
+      fileName: string;
+      mime: string;
+      base64: string;
+    } | null = generateErrorReport(headers, groups, errorRows);
+
     return NextResponse.json({
       ym,
       counts: {
@@ -189,12 +140,14 @@ export async function POST(req: NextRequest) {
         update: toUpdate.length,
         unchanged: unchanged.length,
         remove: toDeleteOrVoid.length,
+        errors: errorRows.length,
       },
       samples: {
         create: toCreate.slice(0, 3).map((i) => i.externalKey),
         update: toUpdate.slice(0, 3).map((i) => i.externalKey),
         remove: toDeleteOrVoid.slice(0, 3).map((l) => l.externalKey),
       },
+      errorReport,
     });
   } catch (err: unknown) {
     return NextResponse.json(

@@ -12,19 +12,17 @@ import {
 } from '@/lib/invoices';
 import { getValidAccessTokenFromServer } from '@/lib/auth-server';
 import {
-  upsertInvoiceByExternalKey,
   clearSubform,
   updateInvoice,
   deleteInvoice,
-  getInvoices,
-  findInvoiceIdByExternalKey,
+  insertInvoice,
 } from '@/lib/zoho/invoices.api';
 import { z } from 'zod';
 import { asyncPool } from '@/lib/zoho/api';
 import { parseAxiosError } from '@/lib/errors';
 
 const SHEET_NAME = 'Template Invoice Creation ';
-const CONCURRENCY = 6;
+const CONCURRENCY = 3;
 
 type RowPick = {
   invoiceDId: string;
@@ -120,6 +118,8 @@ export async function POST(req: NextRequest) {
 
     // Group rows by external key with consecutive grouping
     const groups = new Map<string, InvoiceGroup>();
+    // Track occurrences of the same external key base (per ym, invoiceDId, account)
+    const occurrenceMap = new Map<string, number>();
     let currentGroup: InvoiceGroup | null = null;
 
     for (let i = 0; i < dataRows.length; i++) {
@@ -151,13 +151,20 @@ export async function POST(req: NextRequest) {
         raw: r,
       };
 
-      // New group if: no current group, different invoiceDId, or different accountCode
-      const shouldStartNewGroup =
-        !currentGroup || currentGroup.invoiceDId !== invoiceDId;
+      // We only group when the same invoiceDId appears on subsequent (consecutive) rows
+      const prevRow = i > 0 ? dataRows[i - 1] : null;
+      const prevInvoiceDId = prevRow
+        ? String(prevRow[idx('Invoice D. ID')] ?? '').trim()
+        : null;
+      const shouldStartNewGroup = i === 0 || prevInvoiceDId !== invoiceDId;
       if (shouldStartNewGroup) {
         const { ym, key: baseKey } = makeExternalKey(invoiceDId, invoiceDate);
-        // Include accountCode to guarantee uniqueness across accounts
-        const key = `${baseKey}:${accountCode}`;
+        // Base key per occurrence (same invoiceDId can appear in multiple non-consecutive blocks)
+        const base = `${baseKey}:${accountCode}`;
+        const nextIdx = (occurrenceMap.get(base) ?? 0) + 1;
+        occurrenceMap.set(base, nextIdx);
+        // Suffix index only when it is not the first occurrence to preserve legacy keys
+        const key = nextIdx > 1 ? `${base}:${nextIdx}` : base;
 
         currentGroup = {
           ym,
@@ -173,10 +180,10 @@ export async function POST(req: NextRequest) {
 
       currentGroup?.rows.push(row);
     }
-    // Compute hash for each group using ALL columns (normalized)
+    // Compute hash for each group using first 8 columns only (normalized)
     for (const g of groups.values()) {
       const groupRows = g.rows.map((rr) => rr.raw);
-      g.contentHash = buildInvoiceHash(headers, groupRows);
+      g.contentHash = buildInvoiceHash(headers, groupRows, { columnLimit: 8 });
     }
 
     const invoices = Array.from(groups.values());
@@ -299,52 +306,24 @@ export async function POST(req: NextRequest) {
     const removed: ResultItem[] = [];
     const errors: ResultItem[] = [];
 
-    // CREATE (or update if CRM already has it)
+    // CREATE
     await asyncPool(CONCURRENCY, toCreate, async (g) => {
       try {
         const record = payloadForGroup(g);
-        const existingId = await findInvoiceIdByExternalKey(
-          token,
-          g.externalKey,
-        );
-        if (existingId) {
-          await clearSubform(token, existingId);
-          await updateInvoice(token, existingId, { ...record, id: existingId });
-          await prisma.invoiceLink.upsert({
-            where: { externalKey: g.externalKey },
-            create: {
-              ym: g.ym,
-              externalKey: g.externalKey,
-              crmId: existingId,
-              contentHash: g.contentHash,
-            },
-            update: { crmId: existingId, contentHash: g.contentHash, ym: g.ym },
-          });
-          updated.push({
+        const crmId = await insertInvoice(token, record);
+        await prisma.invoiceLink.upsert({
+          where: {
             externalKey: g.externalKey,
-            crmId: existingId,
-            status: 'updated',
-          });
-        } else {
-          const crmId = await upsertInvoiceByExternalKey(token, record);
-          await prisma.invoiceLink.upsert({
-            where: {
-              externalKey: g.externalKey,
-            },
-            create: {
-              ym: g.ym,
-              externalKey: g.externalKey,
-              crmId,
-              contentHash: g.contentHash,
-            },
-            update: { crmId, contentHash: g.contentHash, ym: g.ym },
-          });
-          created.push({
+          },
+          create: {
+            ym: g.ym,
             externalKey: g.externalKey,
             crmId,
-            status: 'created',
-          });
-        }
+            contentHash: g.contentHash,
+          },
+          update: { crmId, contentHash: g.contentHash, ym: g.ym },
+        });
+        created.push({ externalKey: g.externalKey, crmId, status: 'created' });
       } catch (e: unknown) {
         const { message, details } = parseAxiosError(e);
 

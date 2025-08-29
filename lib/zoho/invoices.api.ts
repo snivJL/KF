@@ -29,7 +29,18 @@ export async function upsertInvoiceByExternalKey(
   record: Record<string, unknown>,
 ): Promise<string> {
   const path = `/Invoices`;
-  console.log('inserting invoice', record);
+  const resp = await crmRequest<ZohoRecordResp>(accessToken, path, {
+    method: 'POST',
+    data: JSON.stringify({ data: [record] }),
+  });
+  return resp.data[0].details.id;
+}
+
+export async function insertInvoice(
+  accessToken: string,
+  record: Record<string, unknown>,
+): Promise<string> {
+  const path = `/Invoices`;
   const resp = await crmRequest<ZohoRecordResp>(accessToken, path, {
     method: 'POST',
     data: JSON.stringify({ data: [record] }),

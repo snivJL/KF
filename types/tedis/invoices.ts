@@ -27,3 +27,24 @@ export type ValidatedInvoice = {
 export type EnrichedValidatedInvoice = ValidatedInvoice & {
   itemId: number;
 };
+
+export interface ZohoInvoiceItem {
+  Product_Name: { id: string };
+  Product_Code: string;
+  Assigned_Employee: { id: string };
+  Quantity: number;
+  Discount: number;
+  List_Price: number;
+}
+
+export interface ZohoInvoicePayload {
+  Subject: string;
+  Invoice_Date: string; // yyyy-MM-dd
+  Billing_Street: string | null;
+  Billing_City: string | null;
+  Billing_Code: string | null;
+  Billing_Country: string | null;
+  Billing_State: string | null;
+  Account_Name: { id: string };
+  Invoiced_Items: ZohoInvoiceItem[];
+}

@@ -4,7 +4,10 @@ import { format } from 'date-fns';
 import { prisma } from '@/lib/prisma';
 import { assertN8NApiKey } from '@/lib/auth';
 import { parseAxiosError } from '@/lib/errors';
-import type { EnrichedValidatedInvoice } from '@/types/tedis/invoices';
+import type {
+  EnrichedValidatedInvoice,
+  ZohoInvoicePayload,
+} from '@/types/tedis/invoices';
 import { getValidAccessTokenFromServer } from '@/lib/auth-server';
 
 const FALLBACK_BASE_URL = process.env.BASE_URL || 'https://kf.zohoplatform.com';
@@ -17,27 +20,6 @@ interface ZohoRecordResponse<Details = { id: string }> {
     status: ZohoActionStatus;
     details?: Details;
   }>;
-}
-
-interface ZohoInvoiceItem {
-  Product_Name: { id: string };
-  Product_Code: string;
-  Assigned_Employee: { id: string };
-  Quantity: number;
-  Discount: number;
-  List_Price: number;
-}
-
-interface ZohoInvoicePayload {
-  Subject: string;
-  Invoice_Date: string; // yyyy-MM-dd
-  Billing_Street: string | null;
-  Billing_City: string | null;
-  Billing_Code: string | null;
-  Billing_Country: string | null;
-  Billing_State: string | null;
-  Account_Name: { id: string };
-  Invoiced_Items: ZohoInvoiceItem[];
 }
 
 type ZohoInvoicesCreateBody = { data: ZohoInvoicePayload[] };

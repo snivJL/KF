@@ -103,7 +103,7 @@ function stableJson(invoice: Invoice): string {
   const items = [...invoice.items]
     .map((i) => ({
       productCode: i.productCode.trim(),
-      quantity: round(i.quantity, 3),
+      quantity: round(i.quantity, 2),
       unitPrice: round(i.unitPrice, 2),
       itemDiscount: round(i.itemDiscount, 2),
       employeeCode: i.employeeCode.trim(),
@@ -172,7 +172,7 @@ function normalizeValueForHash(header: string, raw: unknown): Hashable {
   // Numbers → normalized (qty 3 dp, money 2 dp, else 4 dp generic)
   const num = tryParseNumber(raw);
   if (num != null) {
-    if (isQtyHeader(header)) return normalizeNumber(num, 3);
+    if (isQtyHeader(header)) return normalizeNumber(num, 2);
     if (isMoneyHeader(header)) return normalizeNumber(num, 2);
     return normalizeNumber(num, 4);
   }
@@ -192,14 +192,18 @@ function sortKeyFromRow(row: Record<string, Hashable>): string {
 }
 type Hashable = string | number | null;
 
-// Build a hash from ALL columns present in the sheet for an invoice group
 export function buildInvoiceHash(
   headers: string[],
   rowsForInvoice: unknown[][],
+  opts?: { columnLimit?: number },
 ): string {
+  const colLimit =
+    opts?.columnLimit && opts.columnLimit > 0 ? opts.columnLimit : undefined;
+  const effectiveHeaders = colLimit ? headers.slice(0, colLimit) : headers;
+
   const normalizedRows = rowsForInvoice.map((rawRow) => {
     const obj: Record<string, Hashable> = {};
-    headers.forEach((h, i) => {
+    effectiveHeaders.forEach((h, i) => {
       obj[h] = normalizeValueForHash(h, rawRow[i]);
     });
     return obj;

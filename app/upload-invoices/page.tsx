@@ -132,6 +132,7 @@ export default function InvoicesApplyPage() {
             </Button>
             {error && <span className="text-sm text-destructive">{error}</span>}
           </div>
+
           {result ? (
             <pre className="mt-4 max-h-[420px] overflow-auto rounded-md border bg-muted p-4 text-xs">
               {JSON.stringify(result, null, 2)}
